@@ -178,7 +178,7 @@ RUN printf '#!/bin/bash\nexport VIRTUAL_ENV=%s\nexport PATH="${VIRTUAL_ENV}/bin:
 #########################
 # CONFIGURE ENVIRONMENT #
 #########################
-COPY run.sh init_tethys.sh ./
+COPY run.sh init_tethys.sh start-uvicorn.sh ${TETHYS_HOME}/
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 ENV CONDA_PREFIX="${VIRTUAL_ENV}"
 ENV LD_LIBRARY_PATH="${VIRTUAL_ENV}/lib"
@@ -187,4 +187,4 @@ VOLUME ["${TETHYS_PERSIST}", "${TETHYS_HOME}/keys"]
 EXPOSE 80
 
 WORKDIR ${TETHYS_HOME}
-CMD bash run.sh
+CMD ["start-uvicorn.sh"]
