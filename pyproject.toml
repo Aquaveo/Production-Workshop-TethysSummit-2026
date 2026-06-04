@@ -7,7 +7,6 @@ dependencies = [
     "channels-redis",
     "psycopg2-binary",
     "pyopenssl>=24.0.0",
-    "openssl",
     "django>=4.2,<6",
     "channels",
     "uvicorn[standard]",

@@ -1,17 +1,5 @@
 #!/bin/bash
 
-tail_file() {
-  echo "tailing file $1"
-  ALIGN=27
-  LENGTH=`echo $1 | wc -c`
-  PADDING=`expr ${ALIGN} - ${LENGTH}`
-  PREFIX=$1`perl -e "print ' ' x $PADDING;"`
-  file="/var/log/$1"
-  # each tail runs in the background but prints to stdout
-  # sed outputs each line from tail prepended with the filename+padding
-  tail -qF $file | sed --unbuffered "s|^|${PREFIX}:|g" &
-}
-
 echo_status() {
   local args="${@}"
   tput setaf 4
@@ -60,21 +48,6 @@ echo_status "Starting up..."
 
 echo_status "Setting up Tethys... (This might take a bit)"
 
-./init_tethys.sh
+./init-tethys.sh
 
-if [[ $test = false ]]; then
-
-  # Watch Logs
-  echo_status "Watching logs. You can ignore errors from either apache (httpd) or nginx depending on which one you are using."
-
-  log_files=("tethys/tethys.log")
-
-  # When this exits, exit all background tail processes
-  trap 'kill $(jobs -p)' EXIT
-  for log_file in "${log_files[@]}"; do
-    tail_file "${log_file}"
-  done
-
-  # Read output from tail; wait for kill or stop command (docker waits here)
-  wait
-fi
+echo_status "Tethys setup complete"

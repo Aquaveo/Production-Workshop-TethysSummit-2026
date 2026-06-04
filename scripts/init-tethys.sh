@@ -6,6 +6,19 @@ export STATIC_ROOT="${STATIC_ROOT:-/var/www/tethys/static}"
 export MEDIA_ROOT="${MEDIA_ROOT:-/var/www/tethys/media}"
 export TETHYS_WORKSPACES_ROOT="${TETHYS_WORKSPACES_ROOT:-/var/www/tethys/workspaces}"
 
+readonly TETHYS_SITE_VARS=(
+  SITE_TITLE FAVICON BRAND_TEXT BRAND_IMAGE BRAND_IMAGE_HEIGHT BRAND_IMAGE_WIDTH
+  BRAND_IMAGE_PADDING APPS_LIBRARY_TITLE PRIMARY_COLOR SECONDARY_COLOR
+  PRIMARY_TEXT_COLOR PRIMARY_TEXT_HOVER_COLOR SECONDARY_TEXT_COLOR
+  SECONDARY_TEXT_HOVER_COLOR BACKGROUND_COLOR COPYRIGHT HERO_TEXT BLURB_TEXT
+  FEATURE_1_HEADING FEATURE_1_BODY FEATURE_1_IMAGE FEATURE_2_HEADING
+  FEATURE_2_BODY FEATURE_2_IMAGE FEATURE_3_HEADING FEATURE_3_BODY FEATURE_3_IMAGE
+  CALL_TO_ACTION CALL_TO_ACTION_BUTTON PORTAL_BASE_CSS HOME_PAGE_CSS
+  APPS_LIBRARY_CSS ACCOUNTS_BASE_CSS LOGIN_CSS REGISTER_CSS USER_BASE_CSS
+  HOME_PAGE_TEMPLATE APPS_LIBRARY_TEMPLATE LOGIN_PAGE_TEMPLATE
+  REGISTER_PAGE_TEMPLATE USER_PAGE_TEMPLATE USER_SETTINGS_PAGE_TEMPLATE
+)
+
 mkdir -p "$TETHYS_HOME" "$STATIC_ROOT" "$MEDIA_ROOT" "$TETHYS_WORKSPACES_ROOT"
 
 if [ ! -f "$TETHYS_HOME/portal_config.yml" ]; then
@@ -14,6 +27,7 @@ if [ ! -f "$TETHYS_HOME/portal_config.yml" ]; then
 fi
 
 echo "Configuring Tethys portal settings"
+echo "${ALLOWED_HOSTS}"
 tethys settings \
   --set SECRET_KEY "${TETHYS_SECRET_KEY:-change-me-for-production}" \
   --set DEBUG "${TETHYS_DEBUG:-False}" \
@@ -29,7 +43,7 @@ tethys settings \
   --set DATABASES.default.HOST "${TETHYS_DB_HOST:-postgres}" \
   --set DATABASES.default.PORT "${TETHYS_DB_PORT:-5432}" \
   --set CHANNEL_LAYERS.default.BACKEND channels_redis.core.RedisChannelLayer \
-  --set CHANNEL_LAYERS.default.CONFIG.hosts "[['${REDIS_HOST:-redis}', ${REDIS_PORT:-6379}]]"
+  --set CHANNEL_LAYERS.default.CONFIG.hosts "[['${REDIS_URL}']]"
 
 # App-specific installs or settings can go here. Examples:
 #   pip install /app/path/to/tethysapp_my_app
@@ -37,11 +51,11 @@ tethys settings \
 #   tethys services create persistent ...
 #   tethys app_settings set ...
 if [ "${TETHYS_DB_ENGINE}" = "django.db.backends.postgresql" ]; then
-        PGPASSWORD="${POSTGRES_PASSWORD:-postgres}" tethys db create
-        -n "${TETHYS_DB_USERNAME:-tethys_default}" \
-        -p "${TETHYS_DB_PASSWORD:-pass}"
-        -N "${TETHYS_DB_SUPERUSER:-tethys_super}"
-        -P "${TETHYS_DB_SUPERUSER_PASS:-pass}"
+    PGPASSWORD="${POSTGRES_PASSWORD:-postgres}" tethys db create \
+    -n "${TETHYS_DB_USERNAME:-tethys_default}" \
+    -p "${TETHYS_DB_PASSWORD:-pass}" \
+    -N "${TETHYS_DB_SUPERUSER:-tethys_super}" \
+    -P "${TETHYS_DB_SUPERUSER_PASS:-pass}"
 fi
 
 if [ "${RUN_DB_MIGRATIONS:-true}" = "true" ]; then
@@ -59,9 +73,21 @@ if [ "${COLLECT_STATIC:-true}" = "true" ]; then
   tethys manage collectstatic --noinput --clear
 fi
 
-if [ "${TETHYS_SITE_CONTENT}" ]; then
+
+
+
+site_args=()
+for site_var in "${TETHYS_SITE_VARS[@]}"; do
+  site_value="${!site_var:-}"
+  if [ -n "$site_value" ]; then
+    site_key="--$(printf '%s' "$site_var" | tr '[:upper:]' '[:lower:]' | tr '_' '-')"
+    site_args+=("$site_key" "$site_value")
+  fi
+done
+
+if [ "${#site_args[@]}" -gt 0 ]; then
   echo "Setting up Tethys Site Configuration"
-  tethys site "${TETHYS_SITE_CONTENT}"
+  tethys site "${site_args[@]}"
 fi
 
 touch "$TETHYS_HOME/init_complete"

@@ -3,9 +3,8 @@ services:
     image: postgis/postgis:16-3.4
     container_name: tethys-postgres
     environment:
-      POSTGRES_DB: ${TETHYS_DB_NAME:-tethys_platform}
-      POSTGRES_USER: ${TETHYS_DB_USERNAME:-tethys}
-      POSTGRES_PASSWORD: ${TETHYS_DB_PASSWORD:-pass}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pass}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,19 +14,34 @@ services:
       retries: 12
     restart: unless-stopped
 
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: tethys-valkey
+    command: ["valkey-server", "--appendonly", "yes"]
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   tethys-init:
     build:
       context: .
     container_name: tethys-init
     env_file:
       - .env
-    command: ["/usr/lib/tethys/run.sh"]
+    command: ["/usr/lib/tethys/init-tethys.sh"]
     volumes:
       - tethys_home:/usr/lib/tethys
       - tethys_persist:/var/lib/tethys_persist
     depends_on:
       postgres:
         condition: service_healthy
+      valkey:
+        condition: service_started
     restart: "no"
 
   tethys-web:
@@ -69,3 +83,4 @@ volumes:
   postgres_data:
   tethys_home:
   tethys_persist:
+  valkey_data:
