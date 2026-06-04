@@ -1,0 +1,11 @@
+.git
+**/.git
+.github/
+.vscode/
+conf/
+env/
+*.md
+LICENSE
+docker-compose.yml
+.gitignore
+.dockerignore
