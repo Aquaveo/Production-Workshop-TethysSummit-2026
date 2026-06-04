@@ -15,11 +15,6 @@ services:
       retries: 12
     restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    container_name: tethys-redis
-    restart: unless-stopped
-
   tethys-init:
     build:
       context: .
