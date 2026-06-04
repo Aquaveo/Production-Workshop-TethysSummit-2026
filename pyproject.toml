@@ -1,0 +1,37 @@
+[project]
+name = "tethys-docker-workshop"
+version = "0.1.0"
+description = "Production-style Docker Compose scaffold for Tethys Platform workshops"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "channels-redis",
+    "psycopg2-binary",
+    "pyopenssl>=24.0.0",
+    "openssl",
+    "django>=4.2,<6",
+    "channels",
+    "uvicorn[standard]",
+    "setuptools_scm",
+    "pip",
+    "requests>=2.32.4,<3",
+    "tornado>=6.5,<7",
+    "cryptography>=46.0.5",
+    "bcrypt",
+    "pyyaml",
+    "jinja2",
+    "django-bootstrap5",
+    "django-model-utils",
+    "django-guardian",
+    "social-auth-app-django<5.5",
+    "django-termsandconditions",
+    "django-cookie-consent",
+    "django-json-widget",
+    "djangorestframework-simplejwt",
+    "bokeh",
+    "sqlalchemy==1.*",
+]
+
+[dependency-groups]
+dev = [
+  "ruff",
+]
