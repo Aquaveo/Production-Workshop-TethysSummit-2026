@@ -2,10 +2,39 @@
 **/.git
 .github/
 .vscode/
-conf/
+
+# Local environment files
+.env
+.env.*
+
+# Local virtual environments
+.venv/
+venv/
 env/
+
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+*.pyo
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Coverage and build artifacts
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Project files not needed in image build context
+conf/
 *.md
 LICENSE
 docker-compose.yml
 .gitignore
 .dockerignore
+
+# OS noise
+.DS_Store
+Thumbs.db
