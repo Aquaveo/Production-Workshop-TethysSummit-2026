@@ -161,20 +161,6 @@ RUN groupadd www \
 RUN uv pip install --no-cache \
     git+https://github.com/tethysplatform/tethysapp-earthquake_calculator.git \
 
-
-###############
-# SALT CONFIG #
-###############
-COPY salt/ /srv/salt/
-
-# Clone tethys docker runtime files (run.sh, salt states) — not included in the PyPI package
-RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/tethysplatform/tethys.git /tmp/tethys-src && \
-    cd /tmp/tethys-src && git sparse-checkout set docker && \
-    cp /tmp/tethys-src/docker/run.sh ${TETHYS_HOME}/ && \
-    cp /tmp/tethys-src/docker/liveness-probe.sh ${TETHYS_HOME}/ && \
-    cp -n /tmp/tethys-src/docker/salt/*.sls /srv/salt/ 2>/dev/null && \
-    rm -rf /tmp/tethys-src
-
 RUN chmod +x ${TETHYS_HOME}/run.sh ${TETHYS_HOME}/liveness-probe.sh 2>/dev/null || true
 
 # Ensure the www user can execute Python and all venv binaries
@@ -192,13 +178,13 @@ RUN printf '#!/bin/bash\nexport VIRTUAL_ENV=%s\nexport PATH="${VIRTUAL_ENV}/bin:
 #########################
 # CONFIGURE ENVIRONMENT #
 #########################
+COPY run.sh init_tethys.sh ./
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 ENV CONDA_PREFIX="${VIRTUAL_ENV}"
 ENV LD_LIBRARY_PATH="${VIRTUAL_ENV}/lib"
+
 VOLUME ["${TETHYS_PERSIST}", "${TETHYS_HOME}/keys"]
 EXPOSE 80
 
 WORKDIR ${TETHYS_HOME}
 CMD bash run.sh
-HEALTHCHECK --start-period=240s \
-  CMD ./liveness-probe.sh
