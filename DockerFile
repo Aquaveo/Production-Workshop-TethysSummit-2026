@@ -127,7 +127,7 @@ RUN rm -rf /var/lib/apt/lists/* \
 ###########################################################
 # LAYER 2: Python venv + tethys platform (changes rarely) #
 ###########################################################
-COPY tethys_deps.txt ./tethys_deps.txt
+COPY pyproject.toml .
 
 ENV UV_PYTHON_PREFERENCE=only-managed
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
@@ -143,7 +143,7 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 RUN uv pip install --no-cache \
     "tethys-platform @ git+https://github.com/tethysplatform/tethys.git" \
-  && uv pip install --no-cache -r tethys_deps.txt \
+  && uv pip install --no-cache -r pyproject.toml \
   && tethys gen portal_config
 
 
@@ -152,24 +152,14 @@ RUN uv pip install --no-cache \
 ######################################################
 RUN mkdir -p ${TETHYS_PERSIST} ${TETHYS_APPS_ROOT} ${WORKSPACE_ROOT} ${MEDIA_ROOT} ${STATIC_ROOT} ${TETHYS_LOG}
 
-RUN groupadd www \
-  ; useradd -r -u 1011 -g www www \
-  ; sed -i 's/^user.*/user www www;/' /etc/nginx/nginx.conf \
-  ; sed -i "/^\[supervisord\]$/a user=www" /etc/supervisor/supervisord.conf \
-  ; chown -R www: ${TETHYS_LOG} /run /var/log/supervisor /var/log/nginx /var/lib/nginx
-
 RUN uv pip install --no-cache \
     git+https://github.com/tethysplatform/tethysapp-earthquake_calculator.git \
 
-RUN chmod +x ${TETHYS_HOME}/run.sh ${TETHYS_HOME}/liveness-probe.sh 2>/dev/null || true
+RUN chmod +x ${TETHYS_HOME}/run.sh 2>/dev/null || true
 
 # Ensure the www user can execute Python and all venv binaries
-RUN chmod -R a+rX ${CONDA_HOME}/envs/${CONDA_ENV_NAME} && \
-    chown -R www:www ${VIRTUAL_ENV}/lib/python3.12/site-packages/tethysapp/ \
-
-# Symlink system binaries into venv so run.sh and salt states find them
-RUN ln -sf /usr/bin/pg_isready ${VIRTUAL_ENV}/bin/pg_isready && \
-    ln -sf /usr/bin/psql ${VIRTUAL_ENV}/bin/psql 2>/dev/null || true
+RUN chmod -R a+rX ${CONDA_HOME}/envs/${CONDA_ENV_NAME}
+    # chown -R www:www ${VIRTUAL_ENV}/lib/python3.12/site-packages/tethysapp/
 
 # Create entrypoint shim that activates the venv environment
 RUN printf '#!/bin/bash\nexport VIRTUAL_ENV=%s\nexport PATH="${VIRTUAL_ENV}/bin:${PATH}"\nexport CONDA_PREFIX="${VIRTUAL_ENV}"\nexport LD_LIBRARY_PATH="${VIRTUAL_ENV}/lib:${LD_LIBRARY_PATH}"\nexec "$@"\n' "${VIRTUAL_ENV}" > /usr/local/bin/_entrypoint.sh && \
