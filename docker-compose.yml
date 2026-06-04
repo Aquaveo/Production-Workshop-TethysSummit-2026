@@ -28,10 +28,8 @@ services:
       - .env
     command: ["/usr/lib/tethys/run.sh"]
     volumes:
-      - tethys_home:/var/lib/tethys
-      - tethys_static:/var/www/tethys/static
-      - tethys_media:/var/www/tethys/media
-      - tethys_workspaces:/var/www/tethys/workspaces
+      - tethys_home:/usr/lib/tethys
+      - tethys_persist:/var/lib/tethys_persist
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,10 +46,8 @@ services:
     expose:
       - "8000"
     volumes:
-      - tethys_home:/var/lib/tethys
-      - tethys_static:/var/www/tethys/static
-      - tethys_media:/var/www/tethys/media
-      - tethys_workspaces:/var/www/tethys/workspaces
+      - tethys_home:/usr/lib/tethys
+      - tethys_persist:/var/lib/tethys_persist
     depends_on:
       tethys-init:
         condition: service_completed_successfully
@@ -64,9 +60,7 @@ services:
       - "8080:80"
     volumes:
       - ./conf/tethys_nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - tethys_static:/var/www/tethys/static:ro
-      - tethys_media:/var/www/tethys/media:ro
-      - tethys_workspaces:/var/www/tethys/workspaces:ro
+      - tethys_persist:/var/lib/tethys_persist:ro
     depends_on:
       tethys-web:
         condition: service_healthy
@@ -75,6 +69,4 @@ services:
 volumes:
   postgres_data:
   tethys_home:
-  tethys_static:
-  tethys_media:
-  tethys_workspaces:
+  tethys_persist:
