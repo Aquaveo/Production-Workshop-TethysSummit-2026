@@ -65,7 +65,7 @@ fi
 
 if [ "${CREATE_SUPERUSER:-true}" = "true" ]; then
   echo "Creating portal superuser . . ."
-  tethys db createsuperuser --pn "${PORTAL_SUPERUSER_NAME:-tethys_super}" --pp "${PORTAL_SUPERUSER_PASSWORD:-pass}" --pe "${PORTAL_SUPERUSER_EMAIL}"
+  tethys db createsuperuser --pn "${PORTAL_SUPERUSER_NAME:-admin}" --pp "${PORTAL_SUPERUSER_PASSWORD:-pass}" --pe "${PORTAL_SUPERUSER_EMAIL}"
 fi
 
 if [ "${COLLECT_STATIC:-true}" = "true" ]; then
