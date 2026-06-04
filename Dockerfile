@@ -152,8 +152,10 @@ RUN uv pip install --no-cache \
 ######################################################
 RUN mkdir -p ${TETHYS_PERSIST} ${TETHYS_APPS_ROOT} ${WORKSPACE_ROOT} ${MEDIA_ROOT} ${STATIC_ROOT} ${TETHYS_LOG}
 
-RUN uv pip install --no-cache \
-    git+https://github.com/tethysplatform/tethysapp-earthquake_calculator.git
+RUN git clone https://github.com/tethysplatform/tethysapp-population_viewer.git \
+    ${TETHYS_APPS_ROOT}/tethysapp-population_viewer \
+ && uv pip install --no-cache \
+    ${TETHYS_APPS_ROOT}/tethysapp-population_viewer/tethysapp-population_app
 
 RUN chmod +x ${TETHYS_HOME}/run.sh 2>/dev/null || true
 
