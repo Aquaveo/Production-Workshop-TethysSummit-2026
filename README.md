@@ -39,6 +39,8 @@ k3s single-node VM or laptop
 
 ## Kubernetes
 
+1. Install Gateway API CRDs
+
 ```bash
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
 ```
@@ -54,3 +56,31 @@ gatewayclasses.gateway.networking.k8s.io
 gateways.gateway.networking.k8s.io
 httproutes.gateway.networking.k8s.io
 ```
+
+2. Enable Gateway API support in k3s Traefik
+
+
+```bash
+sudo tee /var/lib/rancher/k3s/server/manifests/traefik-config.yaml >/dev/null <<'EOF'
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesGateway:
+        enabled: true
+EOF
+```
+
+Then watch Traefik reconcile:
+
+```bash
+kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=100
+```
+
+
+[GitHub Issue](https://github.com/k3s-io/k3s/discussions/11100)
+[Docs](https://docs.k3s.io/networking/networking-services#gateway-api)
