@@ -146,3 +146,6 @@ kubectl apply --server-side -f \
 kubectl rollout status deployment \
   -n cnpg-system cnpg-controller-manager
 ```
+Up to this point the script at `dev/k8s/setup-cluster.sh` will do most of the heavy lifting, but we need to do the rest now. Which is to play with the `yaml` files
+
+5. 
