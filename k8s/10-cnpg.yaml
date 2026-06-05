@@ -1,68 +1,38 @@
 apiVersion: v1
-kind: Service
+kind: Secret
 metadata:
-  name: postgres
+  name: tethys-db-app
   namespace: tethys-k8
-spec:
-  selector:
-    app: postgres
-  ports:
-    - name: postgres
-      port: 5432
-      targetPort: 5432
+type: kubernetes.io/basic-auth
+stringData:
+  username: tethys_default
+  password: pass
 ---
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
 metadata:
-  name: postgres
+  name: tethys-postgres
   namespace: tethys-k8
 spec:
-  serviceName: postgres
-  replicas: 1
-  selector:
-    matchLabels:
-      app: postgres
-  template:
-    metadata:
-      labels:
-        app: postgres
-    spec:
-      containers:
-        - name: postgres
-          image: postgis/postgis:16-3.4
-          ports:
-            - containerPort: 5432
-          env:
-            - name: POSTGRES_DB
-              value: tethys_platform
-            - name: POSTGRES_USER
-              value: tethys_default
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: tethys-secret
-                  key: POSTGRES_PASSWORD
-          readinessProbe:
-            exec:
-              command:
-                - pg_isready
-                - -U
-                - tethys_default
-                - -d
-                - tethys_platform
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 12
-          volumeMounts:
-            - name: postgres-data
-              mountPath: /var/lib/postgresql/data
-  volumeClaimTemplates:
-    - metadata:
-        name: postgres-data
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 5Gi
+  instances: 1
+
+  imageName: ghcr.io/cloudnative-pg/postgis:18.3-3.6.2-system-trixie
+
+  bootstrap:
+    initdb:
+      database: tethys_platform
+      owner: tethys_default
+      secret:
+        name: tethys-db-app
+
+  storage:
+    storageClass: local-path
+    size: 1Gi
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
