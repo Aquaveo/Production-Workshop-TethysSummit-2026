@@ -39,7 +39,34 @@ k3s single-node VM or laptop
 
 ## Kubernetes
 
-1. Install Gateway API CRDs
+We have a script at `dev/k8s/setup-cluster.sh` that will do all of the following: 
+
+0. Install k3d
+
+[Docs](https://k3d.io/stable/#install-script)
+
+```bash
+wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+```
+
+```bash
+curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+```
+
+1. Create a cluster
+
+```bash
+k3d cluster create tethys \
+  --servers 1 \
+  --agents 1 \
+  --k3s-arg "--disable=traefik@server:0" \
+  -p "8080:80@loadbalancer" \
+  -p "8443:443@loadbalancer" \
+  --volume "$HOME/k3d/tethys-storage:/var/lib/rancher/k3s/storage@all"
+```
+The -p "8080:80@loadbalancer" mapping exposes traffic from your host's localhost:8080 to port 80 through the k3d load balancer. [k3d documents](https://k3d.io/v5.3.0/usage/exposing_services/) this pattern for exposing HTTP traffic through the cluster load balancer.
+
+2. Install Gateway API CRDs
 
 ```bash
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
@@ -57,30 +84,55 @@ gateways.gateway.networking.k8s.io
 httproutes.gateway.networking.k8s.io
 ```
 
-2. Enable Gateway API support in k3s Traefik
-
-
-```bash
-sudo tee /var/lib/rancher/k3s/server/manifests/traefik-config.yaml >/dev/null <<'EOF'
-apiVersion: helm.cattle.io/v1
-kind: HelmChartConfig
-metadata:
-  name: traefik
-  namespace: kube-system
-spec:
-  valuesContent: |-
-    providers:
-      kubernetesGateway:
-        enabled: true
-EOF
-```
-
-Then watch Traefik reconcile:
+3. Install Traefik with Gateway API enabled
 
 ```bash
-kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=100
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+```
+Create traefik-values.yaml:
+
+```yaml
+providers:
+  kubernetesCRD:
+    enabled: true
+  kubernetesIngress:
+    enabled: false
+  kubernetesGateway:
+    enabled: true
+
+gateway:
+  enabled: false
+
+service:
+  type: LoadBalancer
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+    expose:
+      default: true
+  websecure:
+    port: 8443
+    exposedPort: 443
+    expose:
+      default: true
 ```
 
+Install:
 
-[GitHub Issue](https://github.com/k3s-io/k3s/discussions/11100)
-[Docs](https://docs.k3s.io/networking/networking-services#gateway-api)
+```bash
+helm install traefik traefik/traefik \
+  --namespace traefik \
+  --create-namespace \
+  -f traefik-values.yaml
+```
+
+Wait
+
+```bash
+kubectl -n traefik rollout status deployment/traefik
+kubectl -n traefik get svc
+```
+
