@@ -30,7 +30,7 @@ spec:
         - name: tethys-web
           image: tethys-workshop:local
           imagePullPolicy: Never
-          command: ["/usr/lib/tethys/start-uvicorn.sh"]
+          command: ["/usr/local/bin/start-uvicorn.sh"]
           ports:
             - containerPort: 8000
           env:
@@ -69,14 +69,14 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
           volumeMounts:
-            - name: tethys-home
-              mountPath: /usr/lib/tethys
+            # - name: tethys-home
+            #   mountPath: /usr/lib/tethys
             - name: tethys-persist
               mountPath: /var/lib/tethys_persist
       volumes:
         - name: tethys-home
-          persistentVolumeClaim:
-            claimName: tethys-home-pvc
+          # persistentVolumeClaim:
+          #   claimName: tethys-home-pvc
         - name: tethys-persist
           persistentVolumeClaim:
             claimName: tethys-persist-pvc

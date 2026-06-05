@@ -50,3 +50,12 @@ echo "CloudNativePG installed, waiting for controller to be ready . . ."
 kubectl rollout status deployment \
   -n cnpg-system cnpg-controller-manager
 echo "CloudNativePG controller is ready!"
+
+
+echo "Building Tethys image . . ."
+docker build -t tethys-workshop:local .
+echo "Tethys image built, loading into cluster . . ."
+k3d image import tethys-workshop:local -c tethys
+echo "Tethys image loaded into cluster!"
+
+echo "Cluster setup complete!"

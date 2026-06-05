@@ -146,6 +146,48 @@ kubectl apply --server-side -f \
 kubectl rollout status deployment \
   -n cnpg-system cnpg-controller-manager
 ```
+6. Built the image and save it on `k3d`
+
+```bash
+docker build -t tethys-workshop:local .
+k3d image import tethys-workshop:local -c tethys
+```
+
 Up to this point the script at `dev/k8s/setup-cluster.sh` will do most of the heavy lifting, but we need to do the rest now. Which is to play with the `yaml` files
 
-5. 
+
+5. Applying the Manifests
+
+a. Create the namespace
+
+```bash
+kubectl apply -f k8s/00-namespace.yaml
+```
+b. create the CNPG PostgreSQL Cluster
+
+```bash
+kubectl apply -f k8s/10-cnpg-postgres.yaml
+```
+
+c. Deploy Valkey
+
+```bash
+kubectl apply -f k8s/20-valkey.yaml
+```
+d. Create the pvcs for Tethys
+
+```bash
+kubectl apply -f k8s/30-tethys-pvcs.yaml
+```
+
+e. Create the secrets for Tethys
+
+```bash
+kubectl apply -f k8s/50-tethys-secret.yaml
+``` 
+
+f.Create the config map for Tethys
+
+```bash
+kubectl apply -f k8s/40-tethys-config.yaml
+```

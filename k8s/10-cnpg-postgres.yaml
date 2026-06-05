@@ -5,7 +5,7 @@ metadata:
   namespace: tethys-k8
 type: kubernetes.io/basic-auth
 stringData:
-  username: tethys_default
+  username: postgres
   password: pass
 ---
 apiVersion: postgresql.cnpg.io/v1

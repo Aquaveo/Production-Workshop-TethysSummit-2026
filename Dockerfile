@@ -157,8 +157,6 @@ RUN git clone https://github.com/tethysplatform/tethysapp-population_viewer.git 
  && uv pip install --no-cache \
     ${TETHYS_APPS_ROOT}/tethysapp-population_viewer/tethysapp-population_app
 
-RUN chmod +x ${TETHYS_HOME}/run.sh 2>/dev/null || true
-
 # Ensure the www user can execute Python and all venv binaries
 RUN chmod -R a+rX ${CONDA_HOME}/envs/${CONDA_ENV_NAME}
     # chown -R www:www ${VIRTUAL_ENV}/lib/python3.12/site-packages/tethysapp/
@@ -170,7 +168,8 @@ RUN printf '#!/bin/bash\nexport VIRTUAL_ENV=%s\nexport PATH="${VIRTUAL_ENV}/bin:
 #########################
 # CONFIGURE ENVIRONMENT #
 #########################
-COPY scripts/*.sh ${TETHYS_HOME}/
+COPY scripts/*.sh /usr/local/bin/
+
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 ENV CONDA_PREFIX="${VIRTUAL_ENV}"
 ENV LD_LIBRARY_PATH="${VIRTUAL_ENV}/lib"
@@ -179,4 +178,4 @@ VOLUME ["${TETHYS_PERSIST}", "${TETHYS_HOME}/keys"]
 EXPOSE 80
 
 WORKDIR ${TETHYS_HOME}
-CMD ["start-uvicorn.sh"]
+CMD ["/usr/local/bin/start-uvicorn.sh"]

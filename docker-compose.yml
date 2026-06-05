@@ -33,7 +33,7 @@ services:
     container_name: tethys-init
     env_file:
       - .env
-    command: ["/usr/lib/tethys/init-tethys.sh"]
+    command: ["/usr/local/bin/init-tethys.sh"]
     volumes:
       - tethys_home:/usr/lib/tethys
       - tethys_persist:/var/lib/tethys_persist
@@ -47,7 +47,7 @@ services:
   tethys-web:
     build:
       context: .
-    command: ["/usr/lib/tethys/start-uvicorn.sh"]
+    command: ["/usr/local/bin/start-uvicorn.sh"]
     env_file:
       - .env
     expose:
