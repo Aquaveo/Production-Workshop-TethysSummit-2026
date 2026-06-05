@@ -55,12 +55,12 @@ tethys settings \
 #   tethys install -d /app/path/to/tethysapp_my_app
 #   tethys services create persistent ...
 #   tethys app_settings set ...
-if [ "${TETHYS_DB_ENGINE}" = "django.db.backends.postgresql" ]; then
-    PGPASSWORD="${POSTGRES_PASSWORD:-postgres}" tethys db create \
-    -n "${TETHYS_DB_USERNAME:-tethys_default}" \
-    -p "${TETHYS_DB_PASSWORD:-pass}" \
-    -N "${TETHYS_DB_SUPERUSER:-tethys_super}" \
-    -P "${TETHYS_DB_SUPERUSER_PASS:-pass}"
+if [ "${SKIP_DB_SETUP:-false}" != "true" ] && [ "${TETHYS_DB_ENGINE}" = "django.db.backends.postgresql" ]; then
+        PGPASSWORD="${POSTGRES_PASSWORD:-postgres}" tethys db create \
+        -n "${TETHYS_DB_USERNAME:-tethys_default}" \
+        -p "${TETHYS_DB_PASSWORD:-pass}" \
+        -N "${TETHYS_DB_SUPERUSER:-tethys_super}" \
+        -P "${TETHYS_DB_SUPERUSER_PASS:-pass}"
 fi
 
 if [ "${RUN_DB_MIGRATIONS:-true}" = "true" ]; then

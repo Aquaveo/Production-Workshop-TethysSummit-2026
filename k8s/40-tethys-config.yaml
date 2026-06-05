@@ -13,7 +13,7 @@ data:
 
   POSTGRES_USER: "postgres"
   POSTGRES_PASSWORD: "postgres"
-  SKIP_DB_SETUP: "false"
+  SKIP_DB_SETUP: "true"
 
   STATIC_ROOT: "/var/lib/tethys_persist/static"
   STATIC_ROOT_CLEAR: "True"
