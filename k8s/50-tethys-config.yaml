@@ -16,13 +16,13 @@ data:
   MEDIA_URL: "/media/"
 
   DEBUG: "False"
-  ALLOWED_HOSTS: "\"[localhost, 127.0.0.1, tethys.local]\""
+  ALLOWED_HOSTS: "\"[localhost, 127.0.0.1, tethys.local, tethys-web, tethys-web.tethys-k8.svc, '*']\""
   CSRF_TRUSTED_ORIGINS: "\"[http://localhost, http://127.0.0.1, http://tethys.local]\""
 
   TETHYS_DB_ENGINE: "django.db.backends.postgresql"
   TETHYS_DB_NAME: "tethys_platform"
   TETHYS_DB_USERNAME: "tethys_default"
-  TETHYS_DB_HOST: "postgres"
+  TETHYS_DB_HOST: "tethys-postgres-rw"
   TETHYS_DB_PORT: "5432"
 
   CHANNEL_LAYERS_BACKEND: "channels_redis.core.RedisChannelLayer"

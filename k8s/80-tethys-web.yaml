@@ -33,6 +33,12 @@ spec:
           command: ["/usr/lib/tethys/start-uvicorn.sh"]
           ports:
             - containerPort: 8000
+          env:
+            - name: TETHYS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tethys-db-app
+                  key: password
           envFrom:
             - configMapRef:
                 name: tethys-config

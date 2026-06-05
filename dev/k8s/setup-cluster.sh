@@ -39,3 +39,10 @@ echo "Traefik installed, waiting for pods to be ready . . ."
 kubectl wait --namespace traefik --for=condition=Ready pod --selector=app.kubernetes.io/name=traefik --timeout=120s
 echo "Traefik is ready!"
 
+
+# CNPG
+kubectl apply --server-side -f \
+  https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.29/releases/cnpg-1.29.1.yaml
+
+kubectl rollout status deployment \
+  -n cnpg-system cnpg-controller-manager

@@ -16,6 +16,12 @@ spec:
           image: tethys-workshop:local
           imagePullPolicy: Never
           command: ["/usr/lib/tethys/init-tethys.sh"]
+          env:
+            - name: TETHYS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tethys-db-app
+                  key: password
           envFrom:
             - configMapRef:
                 name: tethys-config
