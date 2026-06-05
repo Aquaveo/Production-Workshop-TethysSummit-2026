@@ -5,6 +5,16 @@ metadata:
   namespace: tethys-k8
 type: kubernetes.io/basic-auth
 stringData:
+  username: tethys_default
+  password: pass
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tethys-db-super
+  namespace: tethys-k8
+type: kubernetes.io/basic-auth
+stringData:
   username: tethys_super
   password: pass
 ---
@@ -21,9 +31,19 @@ spec:
   bootstrap:
     initdb:
       database: tethys_platform
-      owner: tethys_super
+      owner: tethys_default
       secret:
         name: tethys-db-app
+
+  managed:
+    roles:
+      - name: tethys_super
+        ensure: present
+        login: true
+        superuser: true
+        createdb: true
+        passwordSecret:
+          name: tethys-db-super
 
   storage:
     storageClass: local-path
