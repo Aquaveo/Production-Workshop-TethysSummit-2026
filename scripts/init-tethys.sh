@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ -f "$TETHYS_HOME/init_complete" ]; then
+  echo "Tethys already initialized, skipping setup"
+  exit 0
+fi
+
 export TETHYS_HOME="${TETHYS_HOME:-/var/lib/tethys}"
 export STATIC_ROOT="${STATIC_ROOT:-/var/www/tethys/static}"
 export MEDIA_ROOT="${MEDIA_ROOT:-/var/www/tethys/media}"
