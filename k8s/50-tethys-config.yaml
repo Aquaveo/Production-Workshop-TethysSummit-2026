@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tethys-config
+  namespace: tethys-k8
+data:
+  TETHYS_HOME: "/usr/lib/tethys"
+  TETHYS_LOG: "/var/log/tethys"
+  TETHYS_PERSIST: "/var/lib/tethys_persist"
+  TETHYS_APPS_ROOT: "/var/www/tethys/apps"
+  TETHYS_PORT: "8000"
+
+  STATIC_ROOT: "/var/lib/tethys_persist/static"
+  WORKSPACE_ROOT: "/var/lib/tethys_persist/workspaces"
+  MEDIA_ROOT: "/var/lib/tethys_persist/media"
+  MEDIA_URL: "/media/"
+
+  DEBUG: "False"
+  ALLOWED_HOSTS: "\"[localhost, 127.0.0.1, tethys.local]\""
+  CSRF_TRUSTED_ORIGINS: "\"[http://localhost, http://127.0.0.1, http://tethys.local]\""
+
+  TETHYS_DB_ENGINE: "django.db.backends.postgresql"
+  TETHYS_DB_NAME: "tethys_platform"
+  TETHYS_DB_USERNAME: "tethys_default"
+  TETHYS_DB_HOST: "postgres"
+  TETHYS_DB_PORT: "5432"
+
+  CHANNEL_LAYERS_BACKEND: "channels_redis.core.RedisChannelLayer"
+  CHANNEL_LAYERS_CONFIG: "\"{'hosts': [('valkey', 6379)]}\""
+
+  BYPASS_TETHYS_HOME_PAGE: "True"
