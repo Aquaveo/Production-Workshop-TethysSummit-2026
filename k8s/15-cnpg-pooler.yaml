@@ -1,0 +1,15 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: tethys-postgres-pooler-rw
+  namespace: tethys-k8
+spec:
+  cluster:
+    name: tethys-postgres        # references your existing Cluster
+  instances: 2                   # HA: 2 pgbouncer pods behind one Service
+  type: rw                       # routes to the primary (read-write)
+  pgbouncer:
+    poolMode: transaction        # best connection reuse (see caveat below)
+    parameters:
+      max_client_conn: "1000"    # client-side connections pgbouncer accepts
+      default_pool_size: "25"    # server-side conns per (user,db) per instance
