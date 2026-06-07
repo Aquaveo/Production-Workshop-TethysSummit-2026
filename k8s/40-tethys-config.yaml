@@ -11,16 +11,17 @@ data:
   TETHYS_PORT: "8000"
   NGINX_PORT: "8080"
 
-  POSTGRES_USER: "postgres"
-  POSTGRES_PASSWORD: "postgres"
-  SKIP_DB_SETUP: "true"
-
   STATIC_ROOT: "/var/lib/tethys_persist/static"
   STATIC_ROOT_CLEAR: "True"
   WORKSPACE_ROOT: "/var/lib/tethys_persist/workspaces"
   TETHYS_WORKSPACES_ROOT: "/var/lib/tethys_persist/workspaces"
   MEDIA_ROOT: "/var/lib/tethys_persist/media"
   MEDIA_URL: "/media/"
+
+  # Static served via jsDelivr CDN from the public repo. Bump the @<tag> after
+  # each `scripts/publish-static.sh` run. Do NOT set PREFIX_URL or this absolute
+  # URL gets rewritten by tethys settings.py.
+  STATIC_URL: "https://cdn.jsdelivr.net/gh/Aquaveo/Production-Workshop-TethysSummit-2026@static-REPLACE_AFTER_PUBLISH/"
 
   DEBUG: "False"
   TETHYS_DEBUG: "False"
@@ -30,7 +31,7 @@ data:
   TETHYS_DB_ENGINE: "django.db.backends.postgresql"
   TETHYS_DB_NAME: "tethys_platform"
   TETHYS_DB_USERNAME: "tethys_default"
-  TETHYS_DB_HOST: "tethys-postgres-rw"
+  TETHYS_DB_HOST: "tethys-postgres-pooler-rw"
   TETHYS_DB_PORT: "5432"
   TETHYS_DB_SUPERUSER: "tethys_super"
 
@@ -41,7 +42,8 @@ data:
   _NAME: "tethys"
   ASGI_PROCESSES: "1"
   CLIENT_MAX_BODY_SIZE: "75M"
-
+  DISABLE_SERVER_SIDE_CURSORS: "True"
+  CONN_MAX_AGE: "0"
   CHANNEL_LAYERS_BACKEND: "channels_redis.core.RedisChannelLayer"
   CHANNEL_LAYERS_CONFIG: "{'hosts': [('valkey', 6379)]}"
 
