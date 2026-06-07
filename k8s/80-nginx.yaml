@@ -20,11 +20,8 @@ data:
 
         client_max_body_size 100m;
 
-        location /static/ {
-            alias /var/lib/tethys_persist/static/;
-            expires 7d;
-            add_header Cache-Control "public";
-        }
+        # /static/ is served by jsDelivr (see STATIC_URL in tethys-config / publish-static.sh),
+        # so nginx no longer serves static from the PVC.
 
         location /media/ {
             alias /var/lib/tethys_persist/media/;
