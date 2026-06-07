@@ -30,7 +30,7 @@ spec:
         - name: configure          # per-pod portal_config.yml → emptyDir
           image: tethys-workshop:local
           imagePullPolicy: Never
-          command: ["/usr/local/bin/configure-portal.sh"]
+          command: ["/usr/local/bin/portal-config.sh"]
           envFrom:
             - configMapRef:
                 name: tethys-config
@@ -94,12 +94,20 @@ spec:
               port: 8000
             failureThreshold: 30
             periodSeconds: 5
+          # HTTP readiness: keeps an "up but erroring" pod out of the Service.
+          # Host header must be in ALLOWED_HOSTS or Django returns 400 DisallowedHost.
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /
               port: 8000
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
+          # Liveness stays tcpSocket on purpose: an HTTP/DB-dependent liveness check
+          # would restart every pod during a DB/pooler outage (restart storm).
           livenessProbe:
             tcpSocket:
               port: 8000

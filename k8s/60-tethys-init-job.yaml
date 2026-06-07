@@ -16,7 +16,7 @@ spec:
         - name: configure
           image: tethys-workshop:local
           imagePullPolicy: Never
-          command: ["/usr/local/bin/configure-portal.sh"]   # render portal_config.yml
+          command: ["/usr/local/bin/portal-config.sh"]   # render portal_config.yml
           envFrom:
             - configMapRef:
                 name: tethys-config
@@ -59,7 +59,7 @@ spec:
         - name: portal-user-bootstrap
           image: tethys-workshop:local
           imagePullPolicy: Never
-          command: ["/usr/local/bin/portal-user-bootstrap.sh"]   # creates portal superuser, after migrations
+          command: ["/usr/local/bin/portal-bootstrap.sh"]   # creates portal superuser, after migrations
           envFrom:
             - configMapRef:
                 name: tethys-config
