@@ -146,6 +146,8 @@ kubectl apply --server-side -f \
 kubectl rollout status deployment \
   -n cnpg-system cnpg-controller-manager
 ```
+
+
 6. Built the image and save it on `k3d`
 
 ```bash
@@ -155,8 +157,17 @@ k3d image import tethys-workshop:local -c tethys
 
 Up to this point the script at `dev/k8s/setup-cluster.sh` will do most of the heavy lifting, but we need to do the rest now. Which is to play with the `yaml` files
 
+7. Collect the static files
 
-5. Applying the Manifests
+```bash
+  scripts/publish-static.sh                          # publishes -> prints STATIC_URL with a tag
+```
+
+paste that STATIC_URL into k8s/40-tethys-config.yaml (replace the placeholder tag)
+
+**Note** Everytime you update the static files: Re-run publish-static.sh only when static assets change, and bump the tag in the ConfigMap.
+
+8. Applying the Manifests
 
 a. Create the namespace
 
@@ -169,25 +180,52 @@ b. create the CNPG PostgreSQL Cluster
 kubectl apply -f k8s/10-cnpg-postgres.yaml
 ```
 
-c. Deploy Valkey
+c. Let's add a pooler
+
+```bash
+ kubectl apply -f k8s/15-cnpg-pooler.yaml
+```
+This creates a Service named tethys-postgres-pooler-rw in the namespace. CNPG also auto-configures pgbouncer's auth_query and the cnpg_pooler_pgbouncer role for you (because the operator manages this cluster) - no manual SQL needed.
+
+Point the app at the pooler - but keep migrations direct.
+
+This is the key nuance. Send runtime web traffic through the pooler, but run DDL/migrations directly against the primary, because transaction-mode pooling and schema migrations don't mix well.
+
+In k8s/40-tethys-config.yaml, the web pods use the pooler:
+
+`TETHYS_DB_HOST: "tethys-postgres-pooler-rw"`   # was tethys-postgres-rw
+But the bootstrap Job (migrate/createsuperuser) should override back to the direct service:
+
+in 60-tethys-init-job.yaml, on the bootstrap container:
+
+```yaml
+env:
+  - name: TETHYS_DB_HOST
+    value: "tethys-postgres-rw"     # DDL on a real session, bypass pgbouncer
+```
+
+d. Deploy Valkey
 
 ```bash
 kubectl apply -f k8s/20-valkey.yaml
 ```
-d. Create the pvcs for Tethys
+e. Create the pvcs for Tethys
 
 ```bash
 kubectl apply -f k8s/30-tethys-pvcs.yaml
 ```
 
-e. Create the secrets for Tethys
+f. Create the secrets for Tethys
 
 ```bash
 kubectl apply -f k8s/50-tethys-secret.yaml
 ``` 
 
-f.Create the config map for Tethys
+g.Create the config map for Tethys
 
 ```bash
 kubectl apply -f k8s/40-tethys-config.yaml
 ```
+
+Keep `TETHYS_DB_USERNAME: tethys_default`, `TETHYS_DB_HOST: tethys-postgres-rw`, etc. The app connects as `tethys_default` with the password from the `tethys-db-app` secret (already wired). `TETHYS_DB_SUPERUSER: tethys_super` can stay - Tethys uses it later for persistent-store creation, and that role now
+exists via CNPG
