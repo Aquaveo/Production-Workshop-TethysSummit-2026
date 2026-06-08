@@ -174,6 +174,12 @@ a. Create the namespace
 ```bash
 kubectl apply -f k8s/00-namespace.yaml
 ```
+b. let's enable the gateway api on traefik
+
+```bash
+kubectl apply -f k8s/05-traefik-gatewayapi.yaml
+```
+
 b. create the CNPG PostgreSQL Cluster
 
 ```bash
