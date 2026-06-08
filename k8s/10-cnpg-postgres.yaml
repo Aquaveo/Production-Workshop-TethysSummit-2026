@@ -24,7 +24,7 @@ metadata:
   name: tethys-postgres
   namespace: tethys-k8
 spec:
-  instances: 1
+  instances: 3          # 1 primary + 2 streaming replicas, automatic failover
 
   imageName: ghcr.io/cloudnative-pg/postgis:18.3-3.6.2-system-trixie
 
