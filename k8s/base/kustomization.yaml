@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: tethys-k8
+resources:
+  - 00-namespace.yaml
+  - 05-traefik-gatewayapi.yaml
+  - 10-cnpg-postgres.yaml      # DB Secrets + CNPG Cluster: stable names, NOT generated
+  - 15-cnpg-pooler.yaml
+  - 20-valkey.yaml
+  - 30-tethys-pvcs.yaml
+  - 50-tethys-secret.yaml
+  - 60-tethys-init-job.yaml
+  - 70-tethys-web.yaml
+  - 80-nginx.yaml
+  - 90-gateway-api.yaml
+
+configMapGenerator:
+  - name: tethys-config
+    envs:
+      - tethys-config.env
+
+# Central image management (re-tag here instead of editing every manifest).
+images:
+  - name: tethys-workshop
+    newTag: local
