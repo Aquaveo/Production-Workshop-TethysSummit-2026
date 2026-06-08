@@ -22,7 +22,7 @@ export TETHYS_WORKSPACES_ROOT="${TETHYS_WORKSPACES_ROOT:-/var/www/tethys/workspa
 # Where the ConfigMap is mounted (see the configure initContainer volumeMount).
 PORTAL_CONFIG_SRC="${PORTAL_CONFIG_SRC:-/config/portal_config.yml}"
 
-mkdir -p "$TETHYS_HOME" "$TETHYS_PERSIST" "$STATIC_ROOT" "$MEDIA_ROOT" "$TETHYS_WORKSPACES_ROOT"
+mkdir -p "$TETHYS_HOME" 
 
 echo "Applying portal config from $PORTAL_CONFIG_SRC"
 cp "$PORTAL_CONFIG_SRC" "$TETHYS_HOME/portal_config.yml"
