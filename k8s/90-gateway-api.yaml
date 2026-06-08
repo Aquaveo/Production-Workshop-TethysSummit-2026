@@ -15,8 +15,8 @@ spec:
   listeners:
     - name: web
       protocol: HTTP
-      port: 80
-      hostname: tethys.local
+      port: 8000
+      hostname: localhost
       allowedRoutes:
         namespaces:
           from: Same
@@ -30,7 +30,7 @@ spec:
   parentRefs:
     - name: tethys-gateway
   hostnames:
-    - tethys.local
+    - localhost
   rules:
     - matches:
         - path:
