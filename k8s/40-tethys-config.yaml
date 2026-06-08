@@ -21,8 +21,8 @@ data:
   # Static served via jsDelivr CDN from the public repo. Bump the @<tag> after
   # each `scripts/publish-static.sh` run. Do NOT set PREFIX_URL or this absolute
   # URL gets rewritten by tethys settings.py.
-  STATIC_URL: "https://cdn.jsdelivr.net/gh/Aquaveo/Production-Workshop-TethysSummit-2026@static-REPLACE_AFTER_PUBLISH/"
-
+  # STATIC_URL: "https://cdn.jsdelivr.net/gh/Aquaveo/Production-Workshop-TethysSummit-2026@static-REPLACE_AFTER_PUBLISH/"
+  STATIC_URL: "https://cdn.jsdelivr.net/gh/Aquaveo/Production-Workshop-TethysSummit-2026@static-2026.06.08-131712"
   DEBUG: "False"
   TETHYS_DEBUG: "False"
   ALLOWED_HOSTS: "['localhost', '127.0.0.1', 'tethys.local', 'tethys-web', 'tethys-web.tethys-k8.svc']"

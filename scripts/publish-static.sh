@@ -5,7 +5,7 @@
 #
 # Run this LOCALLY (it needs docker + your git push credentials), whenever the
 # static assets change (new app, Tethys upgrade, theme change). It:
-#   1. extracts the static tree baked into the image (Dockerfile runs collectstatic)
+#   1. runs collectstatic inside a throwaway container from the image
 #   2. commits it to an orphan branch (default: gh-static) at the repo root
 #   3. creates an immutable tag (jsDelivr caches tags forever -> safe long TTL)
 #   4. prints the STATIC_URL to paste into k8s/40-tethys-config.yaml
@@ -28,16 +28,30 @@ slug="$(printf '%s' "$REPO_URL" | sed -E 's#(git@github.com:|https://github.com/
 
 workdir="$(mktemp -d)"
 staticdir="$(mktemp -d)"
-trap 'rm -rf "$workdir" "$staticdir"' EXIT
+cid=""
+trap '[ -n "$cid" ] && docker rm -f "$cid" >/dev/null 2>&1; rm -rf "$workdir" "$staticdir"' EXIT
 
-# 1. Generate static on demand inside a throwaway container, then copy it out.
-#    (The runtime image no longer bakes collectstatic, so we run it here.)
-echo "==> Running collectstatic in image: $IMAGE"
-docker run --rm -v "$staticdir:/out" "$IMAGE" bash -c '
+# 1. Generate static inside a throwaway container, then copy it out.
+#    - `tethys settings --set STATIC_ROOT /collected` pins a known output dir: the
+#      image's portal_config has no STATIC_ROOT, so Django would otherwise default
+#      it to /usr/lib/tethys/static.
+#    - `tethys db migrate` first: migrate is the ONLY command exempt from Tethys's
+#      cookie-sync in apps.ready() (tethys_apps/apps.py), so it can create tables
+#      in the container's local sqlite; collectstatic then runs without the
+#      "no such table: cookie_consent_cookiegroup" crash.
+#    - docker cp (not a bind mount) so the extracted files are owned by the host
+#      user, not root (otherwise cleanup fails with "Operation not permitted").
+echo "==> Collecting static in image: $IMAGE"
+cid="$(docker create "$IMAGE" bash -c '
   set -euo pipefail
-  tethys collectstatic --noinput
-  cp -a "${STATIC_ROOT:-/var/lib/tethys_persist/static}/." /out/
-'
+  mkdir -p /collected
+  tethys settings --set STATIC_ROOT /collected >/dev/null
+  tethys db migrate >/dev/null
+  tethys manage collectstatic --noinput
+')"
+docker start -a "$cid"
+docker cp "$cid:/collected/." "$staticdir/"
+docker rm -f "$cid" >/dev/null; cid=""
 [ -n "$(ls -A "$staticdir")" ] || { echo "ERROR: collectstatic produced no files" >&2; exit 1; }
 
 # 2. Put them on a clean orphan branch at the repo root
