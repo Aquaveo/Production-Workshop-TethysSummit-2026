@@ -11,6 +11,18 @@ spec:
       port: 6379
       targetPort: 6379
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: valkey-data
+  namespace: tethys-k8
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 128Mi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,6 +30,11 @@ metadata:
   namespace: tethys-k8
 spec:
   replicas: 1
+  # The RWO volume can attach to only one pod at a time. Recreate terminates the
+  # old pod before starting the new one, so a rollout can't deadlock on the volume
+  # (a default RollingUpdate would leave the new pod stuck "Pending" on attach).
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: valkey
@@ -29,7 +46,7 @@ spec:
       containers:
         - name: valkey
           image: valkey/valkey:8-alpine
-          command: ["valkey-server", "--appendonly", "yes"]
+          command: ["valkey-server", "--appendonly", "yes", "--dir", "/data"]
           ports:
             - containerPort: 6379
           readinessProbe:
@@ -44,3 +61,10 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: valkey-data
