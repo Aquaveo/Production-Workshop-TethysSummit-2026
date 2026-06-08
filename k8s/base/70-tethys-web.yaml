@@ -58,7 +58,12 @@ spec:
                 secretKeyRef:
                   name: tethys-db-app
                   key: password
-          volumeMounts: [{ name: home, mountPath: /usr/lib/tethys }]
+          volumeMounts:
+            - name: home
+              mountPath: /usr/lib/tethys
+            - name: portal-config
+              mountPath: /config
+              readOnly: true
         - name: wait-for-schema    # gate on the Job's migrate, don't run migrate
           image: tethys-workshop:local
           imagePullPolicy: Never
@@ -141,6 +146,9 @@ spec:
             claimName: tethys-persist-pvc
         - name: home
           emptyDir: {}             # per-pod is correct - config regenerated from env
+        - name: portal-config
+          configMap:
+            name: tethys-portal-config
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler

@@ -3,7 +3,6 @@ kind: Kustomization
 namespace: tethys-k8
 resources:
   - 00-namespace.yaml
-  - 05-traefik-gatewayapi.yaml
   - 10-cnpg-postgres.yaml      # DB Secrets + CNPG Cluster: stable names, NOT generated
   - 15-cnpg-pooler.yaml
   - 20-valkey.yaml
@@ -15,9 +14,14 @@ resources:
   - 90-gateway-api.yaml
 
 configMapGenerator:
+  # script/Job env knobs (NOT Django settings)
   - name: tethys-config
     envs:
       - tethys-config.env
+  # the portal config FILE -> Django/portal settings (mounted into the configure initContainer)
+  - name: tethys-portal-config
+    files:
+      - portal_config.yml
 
 # Central image management (re-tag here instead of editing every manifest).
 images:

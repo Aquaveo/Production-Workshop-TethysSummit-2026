@@ -1,0 +1,44 @@
+# Tethys portal configuration - single source of truth for Django/portal settings.
+# Kustomize hashes this file into the `tethys-portal-config` ConfigMap; editing it
+# and re-applying triggers a zero-downtime rolling update of the web pods (no image rebuild).
+#
+# SECRET_KEY and DATABASES.default.PASSWORD are intentionally OMITTED - they are
+# injected at runtime by scripts/portal-config.sh from Secrets. Never store secrets here.
+# DATABASES.default.HOST below is the default (pooler); the init Job overrides it to the
+# direct primary (tethys-postgres-rw) via the TETHYS_DB_HOST env var, for migrations.
+version: 2.0
+name:
+apps: {}
+settings:
+  DEBUG: false
+  ALLOWED_HOSTS:
+    - localhost
+    - 127.0.0.1
+    - tethys-web
+    - tethys-web.tethys-k8.svc
+  CSRF_TRUSTED_ORIGINS:
+    - http://localhost:8080
+    - http://127.0.0.1:8080
+  STATIC_ROOT: /var/lib/tethys_persist/static
+  STATIC_URL: https://cdn.jsdelivr.net/gh/Aquaveo/Production-Workshop-TethysSummit-2026@static-2026.06.08-131712
+  MEDIA_ROOT: /var/lib/tethys_persist/media
+  MEDIA_URL: /media/
+  TETHYS_WORKSPACES_ROOT: /var/lib/tethys_persist/workspaces
+  DATABASES:
+    default:
+      ENGINE: django.db.backends.postgresql
+      NAME: tethys_platform
+      USER: tethys_default
+      HOST: tethys-postgres-pooler-rw
+      PORT: 5432
+      DISABLE_SERVER_SIDE_CURSORS: true
+      CONN_MAX_AGE: 0
+  CHANNEL_LAYERS:
+    default:
+      BACKEND: channels_redis.core.RedisChannelLayer
+      CONFIG:
+        hosts:
+          - - redis://valkey:6379/0
+  TETHYS_PORTAL_CONFIG:
+    ENABLE_OPEN_PORTAL: true
+    BYPASS_TETHYS_HOME_PAGE: true

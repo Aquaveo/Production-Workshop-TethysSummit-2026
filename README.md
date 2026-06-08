@@ -1,6 +1,6 @@
 # Workshop
 
-This is an idea about being able to run tethys using `Uvicorn` instead of `daphne`. The gtethsy container mimics what the original tethys container does with a conda environment, but it uses `uvx`. In addition, it does use nginx on a different container, and it removes the need of supervisord and saltstack on the tethys container.
+This is an idea about being able to run tethys using `Uvicorn` instead of `daphne`. The tethys container mimics what the original tethys container does with a conda environment, but it uses `uv`. In addition, it runs nginx in a separate container, and it removes the need for supervisord and saltstack in the tethys container.
  
 ## Plain Docker on VM
 
@@ -17,24 +17,27 @@ docker compose up -d
 
 Docker Compose          k3s / Kubernetes
 ------------------------------------------------
-postgres                StatefulSet + PVC + Service
-valkey                  Deployment + Service
+postgres                CNPG Cluster (3 instances) + Services
+(connection pool)       CNPG Pooler (PgBouncer)
+valkey                  Deployment + PVC + Service
 tethys-init             Job
-tethys-web              Deployment + Service
+tethys-web              Deployment (replicas + HPA) + Service
 nginx                   Deployment + Service
 docker volumes          PVCs
-.env                    ConfigMap + Secret
-published port 8080     Traefik Ingress or port-forward
+.env                    ConfigMap + Secret (generated via Kustomize)
+static files            jsDelivr CDN (STATIC_URL)
+published port 8080     Traefik + Gateway API (HTTPRoute)
 
 ```text
-k3s single-node VM or laptop
-  ├── Traefik Ingress          # provided by k3s
-  ├── nginx Deployment         # your reverse proxy/static server
+k3s single-node laptop (k3d)
+  ├── Traefik (Gateway API)    # Helm-installed; bundled k3s Traefik disabled
+  ├── nginx Deployment         # reverse proxy + /media, /workspaces
   ├── tethys-web Deployment    # Uvicorn + Tethys
-  ├── tethys-init Job          # migrations, app install, collectall
-  ├── postgres StatefulSet     # PostGIS DB
-  ├── valkey Deployment        # Redis-compatible service
-  └── PVCs                     # TETHYS_HOME, TETHYS_PERSIST, Postgres data
+  ├── tethys-init Job          # migrations, superuser, site config
+  ├── CNPG PostgreSQL          # PostGIS, 3 instances + PgBouncer pooler
+  ├── valkey Deployment        # Redis-compatible (Django Channels)
+  └── PVCs                     # TETHYS_PERSIST + Postgres data
+                               # (TETHYS_HOME is an emptyDir; static served from the CDN)
 ```
 
 ## Kubernetes
@@ -148,7 +151,7 @@ kubectl rollout status deployment \
 ```
 
 
-6. Built the image and save it on `k3d`
+5. Build the image and save it on `k3d`
 
 ```bash
 docker build -t tethys-workshop:local .
@@ -157,101 +160,48 @@ k3d image import tethys-workshop:local -c tethys
 
 Up to this point the script at `dev/k8s/setup-cluster.sh` will do most of the heavy lifting, but we need to do the rest now. Which is to play with the `yaml` files
 
-7. Collect the static files
+6. Collect the static files
 
 ```bash
   scripts/publish-static.sh                          # publishes -> prints STATIC_URL with a tag
 ```
 
-paste that STATIC_URL into k8s/40-tethys-config.yaml (replace the placeholder tag)
+paste that STATIC_URL into `k8s/base/portal_config.yml` (the `STATIC_URL:` line under `settings:`). Kustomize generates the `tethys-portal-config` ConfigMap from this file.
 
-**Note** Everytime you update the static files: Re-run publish-static.sh only when static assets change, and bump the tag in the ConfigMap.
+**Note** Everytime you update the static files: re-run publish-static.sh only when static assets change, and bump the tag on the `STATIC_URL:` line in `k8s/base/portal_config.yml`.
 
-8. Applying the Manifests
+7. Applying the Manifests
 
-a. Create the namespace
+All manifests live under `k8s/base/` and are applied together with Kustomize. The `tethys-config` ConfigMap is generated from `k8s/base/tethys-config.env`, so editing that file and re-applying rolls the change out with no image rebuild.
 
-```bash
-kubectl apply -f k8s/00-namespace.yaml
-```
-b. let's enable the gateway api on traefik
+The init Job's pod template is immutable, so delete any previous run before (re)applying:
 
 ```bash
-kubectl apply -f k8s/05-traefik-gatewayapi.yaml
+kubectl delete job tethys-init -n tethys-k8 --ignore-not-found
+kubectl apply -k k8s/base
 ```
 
-b. create the CNPG PostgreSQL Cluster
+`kubectl apply -k` creates everything in order: the namespace, the Traefik Gateway API config, the CNPG PostgreSQL cluster + pooler, Valkey, the PVCs, the Tethys ConfigMap/Secret, the init Job (migrations → superuser → site config), the Tethys web Deployment, nginx, and the Gateway/HTTPRoute.
+
+**How the database wiring works (already baked into the manifests):**
+
+- **Pooler vs. migrations.** Web pods reach PostgreSQL through the pooler - `TETHYS_DB_HOST: tethys-postgres-pooler-rw` in `tethys-config.env`. The init Job overrides `TETHYS_DB_HOST: tethys-postgres-rw` so DDL/migrations run directly against the primary (transaction-mode pooling and schema migrations don't mix). CNPG auto-configures pgbouncer's `auth_query` and the `cnpg_pooler_pgbouncer` role - no manual SQL needed.
+- **Users/roles.** The app connects as `tethys_default` using the password from the `tethys-db-app` secret; `tethys_super` is created by CNPG (`managed.roles`) for persistent-store creation. No `tethys db create` step is needed.
+
+> To change config later: edit `k8s/base/tethys-config.env` (or a manifest), then re-run the same two commands above. The web Deployment rolls automatically onto the new hashed ConfigMap (zero-downtime); the init Job is recreated by the delete + apply.
+
+8. Access the portal
+
+The Gateway routes the `localhost` host through the k3d load balancer (`8080:80`), so open:
+
+```
+http://localhost:8080
+```
+
+Log in with the superuser from the `tethys-secret` (default `admin` / `pass`). Static assets load from the jsDelivr CDN, so the page renders fully styled.
+
+Quick check from the shell:
 
 ```bash
-kubectl apply -f k8s/10-cnpg-postgres.yaml
-```
-
-c. Let's add a pooler
-
-```bash
- kubectl apply -f k8s/15-cnpg-pooler.yaml
-```
-This creates a Service named tethys-postgres-pooler-rw in the namespace. CNPG also auto-configures pgbouncer's auth_query and the cnpg_pooler_pgbouncer role for you (because the operator manages this cluster) - no manual SQL needed.
-
-Point the app at the pooler - but keep migrations direct.
-
-This is the key nuance. Send runtime web traffic through the pooler, but run DDL/migrations directly against the primary, because transaction-mode pooling and schema migrations don't mix well.
-
-In k8s/40-tethys-config.yaml, the web pods use the pooler:
-
-`TETHYS_DB_HOST: "tethys-postgres-pooler-rw"`   # was tethys-postgres-rw
-But the bootstrap Job (migrate/createsuperuser) should override back to the direct service:
-
-in 60-tethys-init-job.yaml, on the bootstrap container:
-
-```yaml
-env:
-  - name: TETHYS_DB_HOST
-    value: "tethys-postgres-rw"     # DDL on a real session, bypass pgbouncer
-```
-
-d. Deploy Valkey
-
-```bash
-kubectl apply -f k8s/20-valkey.yaml
-```
-e. Create the pvcs for Tethys
-
-```bash
-kubectl apply -f k8s/30-tethys-pvcs.yaml
-```
-f. Create the config map for Tethys
-
-```bash
-kubectl apply -f k8s/40-tethys-config.yaml
-```
-
-g. Create the secrets for Tethys
-
-```bash
-kubectl apply -f k8s/50-tethys-secret.yaml
-```
-
-Keep `TETHYS_DB_USERNAME: tethys_default`, `TETHYS_DB_HOST: tethys-postgres-rw`, etc. The app connects as `tethys_default` with the password from the `tethys-db-app` secret (already wired). `TETHYS_DB_SUPERUSER: tethys_super` can stay - Tethys uses it later for persistent-store creation, and that role now exists via CNPG
-
-h. Create the init jobs for Tethys
-
-```bash
-kubectl apply -f k8s/60-tethys-init-job-yaml
-```
-
-i. Create the actual tethys deployment.
-
-```bash
-kubectl apply -f k8s/70-tethys-web.yaml
-```
-j. Create the actual nginx configuration
-
-```bash
-kubectl apply -f k8s/80-nginx.yaml
-```
-k. Create the gateway and httroutes resources.
-
-```bash
-kubectl apply -f k8s/90-gateway-api.yaml
+curl -I http://localhost:8080/    # expect HTTP 200
 ```
