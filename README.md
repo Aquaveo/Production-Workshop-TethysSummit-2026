@@ -214,18 +214,38 @@ e. Create the pvcs for Tethys
 ```bash
 kubectl apply -f k8s/30-tethys-pvcs.yaml
 ```
-
-f. Create the secrets for Tethys
-
-```bash
-kubectl apply -f k8s/50-tethys-secret.yaml
-``` 
-
-g.Create the config map for Tethys
+f. Create the config map for Tethys
 
 ```bash
 kubectl apply -f k8s/40-tethys-config.yaml
 ```
 
-Keep `TETHYS_DB_USERNAME: tethys_default`, `TETHYS_DB_HOST: tethys-postgres-rw`, etc. The app connects as `tethys_default` with the password from the `tethys-db-app` secret (already wired). `TETHYS_DB_SUPERUSER: tethys_super` can stay - Tethys uses it later for persistent-store creation, and that role now
-exists via CNPG
+g. Create the secrets for Tethys
+
+```bash
+kubectl apply -f k8s/50-tethys-secret.yaml
+```
+
+Keep `TETHYS_DB_USERNAME: tethys_default`, `TETHYS_DB_HOST: tethys-postgres-rw`, etc. The app connects as `tethys_default` with the password from the `tethys-db-app` secret (already wired). `TETHYS_DB_SUPERUSER: tethys_super` can stay - Tethys uses it later for persistent-store creation, and that role now exists via CNPG
+
+h. Create the init jobs for Tethys
+
+```bash
+kubectl apply -f k8s/60-tethys-init-job-yaml
+```
+
+i. Create the actual tethys deployment.
+
+```bash
+kubectl apply -f k8s/70-tethys-web.yaml
+```
+j. Create the actual nginx configuration
+
+```bash
+kubectl apply -f k8s/80-nginx.yaml
+```
+k. Create the gateway and httroutes resources.
+
+```bash
+kubectl apply -f k8s/90-gateway-api.yaml
+```
