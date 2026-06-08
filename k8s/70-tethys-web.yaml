@@ -11,13 +11,29 @@ spec:
       port: 8000
       targetPort: 8000
 ---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tethys-web
+  namespace: tethys-k8
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: tethys-web
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tethys-web
   namespace: tethys-k8
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0     # never go below 2 ready
+      maxSurge: 1           # bring up a new one before retiring an old one
   selector:
     matchLabels:
       app: tethys-web
@@ -125,3 +141,23 @@ spec:
             claimName: tethys-persist-pvc
         - name: home
           emptyDir: {}             # per-pod is correct - config regenerated from env
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: tethys-web
+  namespace: tethys-k8
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tethys-web
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
