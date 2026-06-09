@@ -1,0 +1,27 @@
+/*****************************************************************************
+ * FILE: tethys_gizmos
+ * DATE: 2014
+ * AUTHOR: Nathan Swain
+ * COPYRIGHT: (c) Brigham Young University 2014
+ * LICENSE: BSD 2-Clause
+ *****************************************************************************/
+ /* Get rid of colon after labels */
+label:after {
+	content: none;
+}
+
+/* Styles for inline help */
+.form-horizontal .control-group.error .help-inline {
+	padding-left: 130px;
+	padding-top: 5px;
+}
+
+/*Jobs Table status column*/
+.status-col{
+  min-width: 100px;
+}
+
+/*Jobs Table status column*/
+.status-col.span-two{
+  min-width: 165px;
+}

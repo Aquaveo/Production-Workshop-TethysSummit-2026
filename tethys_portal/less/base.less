@@ -1,0 +1,31 @@
+/*****************************************************************************
+ * FILE: base
+ * DATE: 2014
+ * AUTHOR: Nathan Swain
+ * COPYRIGHT: (c) Brigham Young University 2014
+ * LICENSE: BSD 2-Clause
+ *****************************************************************************/
+body {
+  position: relative;
+  font-family: 'open sans', 'Myriad Pro', 'Lucida Grande', 'Helvetica', sans-serif;
+}
+
+a {
+	color: @link-color;
+	
+	&:hover {
+		color: @link-hover-color;
+	}
+}
+
+#content {
+  position: relative;
+  min-height: 100%;
+}
+
+.flash-messages {
+  left: 50%;
+  top: 104px;
+  z-index: 200;
+  transform: translateX(-50%);
+}
