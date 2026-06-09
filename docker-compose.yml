@@ -24,6 +24,28 @@ services:
       retries: 12
     restart: unless-stopped
 
+  # Connection pooler -- the Compose equivalent of the k8s CNPG Pooler
+  # (k8s/base/15-cnpg-pooler.yaml): PgBouncer in transaction mode, bounding the
+  # server-side connections to Postgres. The web tier connects here; migrations/DDL
+  # bypass it and hit Postgres directly (transaction pooling breaks session-level DDL).
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: tethys-pgbouncer
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${TETHYS_DB_USERNAME:-tethys_default}
+      DB_PASSWORD: ${TETHYS_DB_PASSWORD:-pass}
+      DB_NAME: ${TETHYS_DB_NAME:-tethys_platform}
+      AUTH_TYPE: scram-sha-256       # Postgres 16 default password encryption
+      POOL_MODE: transaction 
+      MAX_CLIENT_CONN: "1000"        # client conns pgbouncer accepts
+      DEFAULT_POOL_SIZE: "25"        # server conns per (user,db)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   valkey:
     image: valkey/valkey:8-alpine
     container_name: tethys-valkey
@@ -71,6 +93,8 @@ services:
     depends_on:
       tethys-init:
         condition: service_completed_successfully
+      pgbouncer:                       # web talks to Postgres THROUGH the pooler
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8000/ || exit 1"]
       interval: 30s

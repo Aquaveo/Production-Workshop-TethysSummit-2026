@@ -19,8 +19,17 @@ set -euo pipefail
 # All three steps are idempotent, so this runs cleanly on every `docker compose up`
 # and picks up edits to conf/portal_config.yml (no init_complete guard needed).
 
-/usr/local/bin/portal-config.sh
-/usr/local/bin/db-migrations.sh
+/usr/local/bin/portal-config.sh        # renders with DB host = TETHYS_DB_HOST (postgres, direct)
+/usr/local/bin/db-migrations.sh        # migrations/DDL run DIRECT (bypass the txn-mode pooler)
 /usr/local/bin/portal-bootstrap.sh
+
+# Point the web tier at the transaction-mode pooler. The DDL above ran direct against
+# Postgres; web (which reads this same shared portal_config.yml) now goes through PgBouncer.
+# Mirrors k8s, where the web pods' configure step sets HOST=<pooler> while the init Job uses
+# the direct primary. Skip the flip if no pooler is configured.
+if [ -n "${TETHYS_POOLER_HOST:-}" ]; then
+  echo "Repointing portal_config.yml DB host at the pooler (${TETHYS_POOLER_HOST}) for the web tier"
+  tethys settings --set DATABASES.default.HOST "${TETHYS_POOLER_HOST}"
+fi
 
 echo "Tethys init complete"

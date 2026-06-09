@@ -36,8 +36,15 @@ settings:
       ENGINE: django.db.backends.postgresql
       NAME: tethys_platform
       USER: tethys_default
-      HOST: postgres          # the Compose postgres service (no pooler); injected by portal-config.sh
+      # File default is the direct primary (init migrates direct); init-tethys.sh flips
+      # this to the pgbouncer pooler for the web tier (TETHYS_POOLER_HOST). HOST is also
+      # injected at render time by portal-config.sh.
+      HOST: postgres
       PORT: 5432
+      # Required when going through a transaction-mode pooler (server-side cursors and
+      # long-lived connections don't survive PgBouncer transaction pooling).
+      DISABLE_SERVER_SIDE_CURSORS: true
+      CONN_MAX_AGE: 0
   CHANNEL_LAYERS:
     default:
       BACKEND: channels_redis.core.RedisChannelLayer
