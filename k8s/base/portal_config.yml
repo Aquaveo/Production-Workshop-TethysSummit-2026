@@ -19,11 +19,11 @@ settings:
   CSRF_TRUSTED_ORIGINS:
     - http://localhost:8080
     - http://127.0.0.1:8080
-  STATIC_ROOT: /var/lib/tethys_persist/static
+  STATIC_ROOT: /home/tethys/persist/static
   STATIC_URL: https://cdn.jsdelivr.net/gh/Aquaveo/Production-Workshop-TethysSummit-2026@static-2026.06.08-131712/
-  MEDIA_ROOT: /var/lib/tethys_persist/media
+  MEDIA_ROOT: /home/tethys/persist/media
   MEDIA_URL: /media/
-  TETHYS_WORKSPACES_ROOT: /var/lib/tethys_persist/workspaces
+  TETHYS_WORKSPACES_ROOT: /home/tethys/persist/workspaces
 
   # Upload limits - keep aligned with nginx client_max_body_size (CLIENT_MAX_BODY_SIZE).
   # 100 MiB = 100 * 1024 * 1024 = 104857600 bytes (matches nginx "100m").

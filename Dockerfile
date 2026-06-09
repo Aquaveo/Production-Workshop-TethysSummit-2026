@@ -10,12 +10,16 @@
 ###############################################################################
 FROM debian:trixie-slim AS base
 
-# Paths + venv layout (mimics the conda layout Tethys expects)
-ENV TETHYS_HOME="/usr/lib/tethys" \
-    TETHYS_LOG="/var/log/tethys" \
-    TETHYS_PERSIST="/var/lib/tethys_persist" \
-    TETHYS_APPS_ROOT="/var/www/tethys/apps" \
-    TETHYS_MANAGE="/usr/lib/tethys/tethys/tethys_portal/manage.py" \
+# Paths + venv layout (mimics the conda layout Tethys expects).
+# All Tethys state lives under /home/tethys (the service user's home) so a non-root
+# user owns it WITHOUT chowning system dirs -- see `useradd` in the runtime stage.
+# (TETHYS_MANAGE was dropped: it pointed at a manage.py under TETHYS_HOME that never
+#  existed -- the real one ships inside the venv -- and nothing reads it.)
+ENV HOME="/home/tethys" \
+    TETHYS_HOME="/home/tethys/portal" \
+    TETHYS_LOG="/home/tethys/log" \
+    TETHYS_PERSIST="/home/tethys/persist" \
+    TETHYS_APPS_ROOT="/home/tethys/apps" \
     BASH_PROFILE=".bashrc" \
     CONDA_HOME="/opt/conda" \
     CONDA_ENV_NAME="tethys" \
@@ -34,20 +38,23 @@ ENV STATIC_ROOT="${TETHYS_PERSIST}/static" \
 
 # DB + portal defaults (consumed by the Docker-Compose path / init-tethys.sh).
 # In k8s these come from tethys-config.env + portal_config.yml instead.
+#
+# NOTE: password/secret values are intentionally NOT baked here -- doing so writes
+# them into a permanent image layer (readable via `docker history`), which trips
+# BuildKit's SecretsUsedInArgOrEnv lint. They are supplied at runtime instead:
+#   - k8s    -> Secrets (tethys-db-app, tethys-secret)
+#   - Compose -> .env / `environment:` in docker-compose.yml
+# and every consuming script already defaults them (e.g. "${TETHYS_DB_PASSWORD:-pass}").
 ENV TETHYS_PORT=8000 \
-    POSTGRES_PASSWORD="pass" \
     SKIP_DB_SETUP=false \
     TETHYS_DB_ENGINE="django.db.backends.postgresql" \
     TETHYS_DB_NAME="tethys_platform" \
     TETHYS_DB_USERNAME="tethys_default" \
-    TETHYS_DB_PASSWORD="pass" \
     TETHYS_DB_HOST="db" \
     TETHYS_DB_PORT=5432 \
     TETHYS_DB_SUPERUSER="tethys_super" \
-    TETHYS_DB_SUPERUSER_PASS="pass" \
     PORTAL_SUPERUSER_NAME="" \
     PORTAL_SUPERUSER_EMAIL="" \
-    PORTAL_SUPERUSER_PASSWORD="" \
     ASGI_PROCESSES=1 \
     CLIENT_MAX_BODY_SIZE="75M" \
     DEBUG="False" \
@@ -63,7 +70,6 @@ ENV TETHYS_PORT=8000 \
     OAUTH_OPTIONS="\"{}\"" \
     CHANNEL_LAYERS_BACKEND="channels.layers.InMemoryChannelLayer" \
     CHANNEL_LAYERS_CONFIG="\"{}\"" \
-    RECAPTCHA_PRIVATE_KEY="" \
     RECAPTCHA_PUBLIC_KEY="" \
     OTHER_SETTINGS=""
 
@@ -122,25 +128,37 @@ RUN chmod -R a+rX /opt/python /opt/conda
 FROM base AS runtime
 
 # runtime libs only: certs (outbound HTTPS), curl (Compose healthcheck),
-# postgresql-client (psql/createdb for Compose `tethys db create`, + libpq for psycopg2)
+# postgresql-client (psql client + libpq for psycopg2)
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 
+# Non-root service user. --create-home makes /home/tethys owned by uid 1000, which is
+# what lets every Tethys dir below it be created AS the user (no chown anywhere). The
+# passwd entry also keeps getpwuid()/expanduser("~") happy for the venv + Django.
+RUN useradd --uid 1000 --create-home --home-dir /home/tethys --shell /bin/bash tethys
+
 # The interpreter AND the venv -- copy BOTH at the SAME paths: the venv's pyvenv.cfg
-# hardcodes /opt/python, so the venv is dead without it.
+# hardcodes /opt/python, so the venv is dead without it. (Already world-readable via
+# `chmod a+rX` in the builder, so uid 1000 can execute it read-only.)
 COPY --from=builder /opt/python /opt/python
 COPY --from=builder /opt/conda  /opt/conda
-# Baked default portal_config.yml (Compose uses it; k8s overwrites it at startup)
-COPY --from=builder ${TETHYS_HOME}/portal_config.yml ${TETHYS_HOME}/portal_config.yml
 
-# Runtime dirs + the venv-activating entrypoint shim
-RUN mkdir -p "${TETHYS_HOME}/tethys" "${TETHYS_PERSIST}" "${TETHYS_APPS_ROOT}" \
-      "${WORKSPACE_ROOT}" "${MEDIA_ROOT}" "${STATIC_ROOT}" "${TETHYS_LOG}" \
-  && printf '#!/bin/bash\nexport VIRTUAL_ENV=%s\nexport PATH="${VIRTUAL_ENV}/bin:${PATH}"\nexport CONDA_PREFIX="${VIRTUAL_ENV}"\nexport LD_LIBRARY_PATH="${VIRTUAL_ENV}/lib:${LD_LIBRARY_PATH}"\nexec "$@"\n' "${VIRTUAL_ENV}" > /usr/local/bin/_entrypoint.sh \
+# venv-activating entrypoint shim (root-owned, world-executable) + the scripts
+RUN printf '#!/bin/bash\nexport VIRTUAL_ENV=%s\nexport PATH="${VIRTUAL_ENV}/bin:${PATH}"\nexport CONDA_PREFIX="${VIRTUAL_ENV}"\nexport LD_LIBRARY_PATH="${VIRTUAL_ENV}/lib:${LD_LIBRARY_PATH}"\nexec "$@"\n' "${VIRTUAL_ENV}" > /usr/local/bin/_entrypoint.sh \
   && chmod +x /usr/local/bin/_entrypoint.sh
+COPY --chmod=0755 scripts/*.sh /usr/local/bin/
 
-COPY scripts/*.sh /usr/local/bin/
+USER 1000:1000
+
+# Everything lives under /home/tethys (owned by 1000), so these are created AS the
+# user -- zero chown. (TETHYS_PERSIST is created implicitly by its subdirs.)
+RUN mkdir -p "${TETHYS_HOME}/keys" "${TETHYS_HOME}/tethys" \
+      "${STATIC_ROOT}" "${MEDIA_ROOT}" "${WORKSPACE_ROOT}" \
+      "${TETHYS_APPS_ROOT}" "${TETHYS_LOG}"
+
+# Baked default portal_config.yml (Compose uses it; k8s overwrites it at startup)
+COPY --chown=1000:1000 --from=builder ${TETHYS_HOME}/portal_config.yml ${TETHYS_HOME}/portal_config.yml
 
 VOLUME ["${TETHYS_PERSIST}", "${TETHYS_HOME}/keys"]
 WORKDIR ${TETHYS_HOME}

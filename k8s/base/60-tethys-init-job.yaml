@@ -15,6 +15,15 @@ spec:
   template:
     spec:
       restartPolicy: OnFailure
+      # Run as the image's non-root user. fsGroup makes the `home` emptyDir
+      # group-owned by 1000 so the configure step can write portal_config.yml.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       # initContainers run sequentially and each must complete before the next,
       # guaranteeing order: configure -> migrate -> (main) createsuperuser.
       initContainers:
@@ -38,7 +47,7 @@ spec:
                   key: password
           volumeMounts:
             - name: home
-              mountPath: /usr/lib/tethys
+              mountPath: /home/tethys/portal
             - name: portal-config
               mountPath: /config
               readOnly: true
@@ -62,7 +71,7 @@ spec:
                   key: password
           volumeMounts:
             - name: home
-              mountPath: /usr/lib/tethys
+              mountPath: /home/tethys/portal
       containers:
         - name: portal-user-bootstrap
           image: tethys-workshop:local
@@ -84,7 +93,7 @@ spec:
                   key: password
           volumeMounts:
             - name: home
-              mountPath: /usr/lib/tethys
+              mountPath: /home/tethys/portal
 
       volumes:
         - name: home

@@ -4,6 +4,7 @@ This is an idea about being able to run tethys using `Uvicorn` instead of `daphn
  
 ## Plain Docker on VM
 
+
 ## Steps
 
  ```bash
@@ -12,7 +13,11 @@ docker compose build
 docker compose up tethys-init
 docker compose up -d
 ```
+we are striving to have a small image!
 
+```bash
+docker images tethys-workshop:multistage --format '{{.Size}}'
+```
 ## Architecture
 
 Docker Compose          k3s / Kubernetes

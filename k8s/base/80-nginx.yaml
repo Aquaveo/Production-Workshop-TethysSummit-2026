@@ -18,7 +18,7 @@ data:
     }
 
     server {
-        listen 80;
+        listen 8080;          # non-root nginx can't bind <1024
         server_name _;
 
         client_max_body_size ${CLIENT_MAX_BODY_SIZE};
@@ -27,11 +27,11 @@ data:
         # so nginx no longer serves static from the PVC.
 
         location /media/ {
-            alias /var/lib/tethys_persist/media/;
+            alias /home/tethys/persist/media/;
         }
 
         location /workspaces/ {
-            alias /var/lib/tethys_persist/workspaces/;
+            alias /home/tethys/persist/workspaces/;
         }
 
         location / {
@@ -64,8 +64,8 @@ spec:
     app: nginx
   ports:
     - name: http
-      port: 80
-      targetPort: 80
+      port: 80              # Service port (HTTPRoute backendRef targets this) stays 80
+      targetPort: 8080      # ...but the unprivileged nginx container listens on 8080
       nodePort: 30080
   type: NodePort
 ---
@@ -84,11 +84,20 @@ spec:
       labels:
         app: nginx
     spec:
+      # Unprivileged nginx already runs as uid 101; pin it + drop root explicitly.
+      # fsGroup 1000 matches the tethys-persist PVC owner so nginx can read media/workspaces.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nginx
-          image: nginx:stable-alpine
+          image: nginxinc/nginx-unprivileged:stable-alpine
           ports:
-            - containerPort: 80
+            - containerPort: 8080
           env:
             # The only var envsubst substitutes into the template. Sourced from the
             # hashed tethys-config CM, so changing it auto-rolls nginx.
@@ -107,7 +116,7 @@ spec:
               mountPath: /etc/nginx/templates/default.conf.template
               subPath: default.conf.template
             - name: tethys-persist
-              mountPath: /var/lib/tethys_persist
+              mountPath: /home/tethys/persist
               readOnly: true
           resources:
             requests:

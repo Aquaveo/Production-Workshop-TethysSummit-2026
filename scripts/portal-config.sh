@@ -13,11 +13,11 @@ set -euo pipefail
 # => Changing any Django/portal setting is just an edit to portal_config.yml + re-apply.
 #    No image rebuild, because this script never enumerates settings.
 
-export TETHYS_HOME="${TETHYS_HOME:-/var/lib/tethys}"
-export TETHYS_PERSIST="${TETHYS_PERSIST:-/var/lib/tethys_persist}"
-export STATIC_ROOT="${STATIC_ROOT:-/var/www/tethys/static}"
-export MEDIA_ROOT="${MEDIA_ROOT:-/var/www/tethys/media}"
-export TETHYS_WORKSPACES_ROOT="${TETHYS_WORKSPACES_ROOT:-/var/www/tethys/workspaces}"
+export TETHYS_HOME="${TETHYS_HOME:-/home/tethys/portal}"
+export TETHYS_PERSIST="${TETHYS_PERSIST:-/home/tethys/persist}"
+export STATIC_ROOT="${STATIC_ROOT:-/home/tethys/persist/static}"
+export MEDIA_ROOT="${MEDIA_ROOT:-/home/tethys/persist/media}"
+export TETHYS_WORKSPACES_ROOT="${TETHYS_WORKSPACES_ROOT:-/home/tethys/persist/workspaces}"
 
 # Where the ConfigMap is mounted (see the configure initContainer volumeMount).
 PORTAL_CONFIG_SRC="${PORTAL_CONFIG_SRC:-/config/portal_config.yml}"

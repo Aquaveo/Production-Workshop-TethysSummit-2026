@@ -34,7 +34,7 @@ trap '[ -n "$cid" ] && docker rm -f "$cid" >/dev/null 2>&1; rm -rf "$workdir" "$
 # 1. Generate static inside a throwaway container, then copy it out.
 #    - `tethys settings --set STATIC_ROOT /collected` pins a known output dir: the
 #      image's portal_config has no STATIC_ROOT, so Django would otherwise default
-#      it to /usr/lib/tethys/static.
+#      it to /home/tethys/persist/static.
 #    - `tethys db migrate` first: migrate is the ONLY command exempt from Tethys's
 #      cookie-sync in apps.ready() (tethys_apps/apps.py), so it can create tables
 #      in the container's local sqlite; collectstatic then runs without the

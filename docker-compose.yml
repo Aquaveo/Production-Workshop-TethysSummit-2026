@@ -3,10 +3,20 @@ services:
     image: postgis/postgis:16-3.4
     container_name: tethys-postgres
     environment:
+      # Bootstrap superuser the postgis image creates first.
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pass}
+      # Consumed by /docker-entrypoint-initdb.d/10-create-tethys-db.sh to create
+      # the Tethys roles + database on first boot (the CNPG-bootstrap equivalent).
+      TETHYS_DB_NAME: ${TETHYS_DB_NAME:-tethys_platform}
+      TETHYS_DB_USERNAME: ${TETHYS_DB_USERNAME:-tethys_default}
+      TETHYS_DB_PASSWORD: ${TETHYS_DB_PASSWORD:-pass}
+      TETHYS_DB_SUPERUSER: ${TETHYS_DB_SUPERUSER:-tethys_super}
+      TETHYS_DB_SUPERUSER_PASS: ${TETHYS_DB_SUPERUSER_PASS:-pass}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Runs ONCE on first boot (empty data dir) -- creates roles + db.
+      - ./conf/postgres-initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${TETHYS_DB_USERNAME:-tethys} -d ${TETHYS_DB_NAME:-tethys_platform}"]
       interval: 10s
@@ -35,8 +45,8 @@ services:
       - .env
     command: ["/usr/local/bin/init-tethys.sh"]
     volumes:
-      - tethys_home:/usr/lib/tethys
-      - tethys_persist:/var/lib/tethys_persist
+      - tethys_home:/home/tethys/portal
+      - tethys_persist:/home/tethys/persist
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,8 +63,8 @@ services:
     expose:
       - "8000"
     volumes:
-      - tethys_home:/usr/lib/tethys
-      - tethys_persist:/var/lib/tethys_persist
+      - tethys_home:/home/tethys/portal
+      - tethys_persist:/home/tethys/persist
     depends_on:
       tethys-init:
         condition: service_completed_successfully
@@ -67,13 +77,13 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:stable-alpine
+    image: nginxinc/nginx-unprivileged:stable-alpine   # runs as uid 101, listens on 8080
     container_name: tethys-nginx
     ports:
-      - "8080:80"
+      - "8080:8080"
     volumes:
       - ./conf/tethys_nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - tethys_persist:/var/lib/tethys_persist:ro
+      - tethys_persist:/home/tethys/persist:ro
     depends_on:
       tethys-web:
         condition: service_healthy

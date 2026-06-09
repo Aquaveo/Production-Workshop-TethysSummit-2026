@@ -6,10 +6,10 @@ if [ -f "$TETHYS_HOME/init_complete" ]; then
   exit 0
 fi
 
-export TETHYS_HOME="${TETHYS_HOME:-/var/lib/tethys}"
-export STATIC_ROOT="${STATIC_ROOT:-/var/www/tethys/static}"
-export MEDIA_ROOT="${MEDIA_ROOT:-/var/www/tethys/media}"
-export TETHYS_WORKSPACES_ROOT="${TETHYS_WORKSPACES_ROOT:-/var/www/tethys/workspaces}"
+export TETHYS_HOME="${TETHYS_HOME:-/home/tethys/portal}"
+export STATIC_ROOT="${STATIC_ROOT:-/home/tethys/persist/static}"
+export MEDIA_ROOT="${MEDIA_ROOT:-/home/tethys/persist/media}"
+export TETHYS_WORKSPACES_ROOT="${TETHYS_WORKSPACES_ROOT:-/home/tethys/persist/workspaces}"
 
 readonly TETHYS_SITE_VARS=(
   SITE_TITLE FAVICON BRAND_TEXT BRAND_IMAGE BRAND_IMAGE_HEIGHT BRAND_IMAGE_WIDTH
@@ -39,6 +39,7 @@ tethys settings \
   --set ALLOWED_HOSTS "${ALLOWED_HOSTS:-['localhost','127.0.0.1']}" \
   --set CSRF_TRUSTED_ORIGINS "${CSRF_TRUSTED_ORIGINS:-['http://localhost:8080']}" \
   --set STATIC_ROOT "$STATIC_ROOT" \
+  --set STATIC_URL "${STATIC_URL:-/static/}" \
   --set MEDIA_ROOT "$MEDIA_ROOT" \
   --set TETHYS_WORKSPACES_ROOT "$TETHYS_WORKSPACES_ROOT" \
   --set DATABASES.default.ENGINE django.db.backends.postgresql \
@@ -55,13 +56,12 @@ tethys settings \
 #   tethys install -d /app/path/to/tethysapp_my_app
 #   tethys services create persistent ...
 #   tethys app_settings set ...
-if [ "${SKIP_DB_SETUP:-false}" != "true" ] && [ "${TETHYS_DB_ENGINE}" = "django.db.backends.postgresql" ]; then
-        PGPASSWORD="${POSTGRES_PASSWORD:-postgres}" tethys db create \
-        -n "${TETHYS_DB_USERNAME:-tethys_default}" \
-        -p "${TETHYS_DB_PASSWORD:-pass}" \
-        -N "${TETHYS_DB_SUPERUSER:-tethys_super}" \
-        -P "${TETHYS_DB_SUPERUSER_PASS:-pass}"
-fi
+#
+# NOTE: the database, the owner role (tethys_default) and the superuser role
+# (tethys_super) are created by Postgres itself on first boot, via
+# conf/postgres-initdb/10-create-tethys-db.sh -- the Compose equivalent of
+# CloudNativePG's bootstrap.initdb + managed.roles. `tethys db create` is
+# intentionally NOT run here; Tethys no longer manages roles/databases.
 
 if [ "${RUN_DB_MIGRATIONS:-true}" = "true" ]; then
   echo "Running database migrations"
@@ -73,13 +73,10 @@ if [ "${CREATE_SUPERUSER:-true}" = "true" ]; then
   tethys db createsuperuser --pn "${PORTAL_SUPERUSER_NAME:-admin}" --pp "${PORTAL_SUPERUSER_PASSWORD:-pass}" --pe "${PORTAL_SUPERUSER_EMAIL}"
 fi
 
-if [ "${COLLECT_STATIC:-true}" = "true" ]; then
-  echo "Collecting static files"
-  tethys manage collectstatic --noinput --clear
-fi
-
-
-
+# Static files are served by the jsDelivr CDN (see STATIC_URL above and
+# scripts/publish-static.sh), published ahead of time -- same as k8s. So we do
+# NOT run `tethys manage collectstatic` at startup. To (re)publish assets after
+# changing them, run scripts/publish-static.sh and update STATIC_URL.
 
 site_args=()
 for site_var in "${TETHYS_SITE_VARS[@]}"; do

@@ -42,6 +42,15 @@ spec:
       labels:
         app: tethys-web
     spec:
+      # Run as the image's non-root user. fsGroup makes the `home` emptyDir
+      # and the tethys-persist PVC group-owned by 1000 so the pod can write.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: configure          # per-pod portal_config.yml → emptyDir
           image: tethys-workshop:local
@@ -60,7 +69,7 @@ spec:
                   key: password
           volumeMounts:
             - name: home
-              mountPath: /usr/lib/tethys
+              mountPath: /home/tethys/portal
             - name: portal-config
               mountPath: /config
               readOnly: true
@@ -84,7 +93,7 @@ spec:
                 secretKeyRef:
                   name: tethys-db-app
                   key: password
-          volumeMounts: [{ name: home, mountPath: /usr/lib/tethys }]
+          volumeMounts: [{ name: home, mountPath: /home/tethys/portal }]
       containers:
         - name: tethys-web
           image: tethys-workshop:local
@@ -144,9 +153,9 @@ spec:
             timeoutSeconds: 5
           volumeMounts:
             - name: home
-              mountPath: /usr/lib/tethys
+              mountPath: /home/tethys/portal
             - name: tethys-persist
-              mountPath: /var/lib/tethys_persist
+              mountPath: /home/tethys/persist
       volumes:
         - name: tethys-persist
           persistentVolumeClaim:
