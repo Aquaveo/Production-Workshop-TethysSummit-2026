@@ -1,0 +1,100 @@
+# Tethys portal configuration for the Docker-Compose path -- the declarative source
+# of truth for Django/portal settings, the Compose equivalent of the k8s
+# tethys-portal-config ConfigMap (k8s/base/portal_config.yml).
+#
+# Mounted read-only into tethys-init at /config/portal_config.yml; scripts/portal-config.sh
+# copies it into TETHYS_HOME and injects the values that must NOT live in a file:
+#   - SECRET_KEY                  <- TETHYS_SECRET_KEY (.env)
+#   - DATABASES.default.PASSWORD  <- TETHYS_DB_PASSWORD (.env)
+#   - DATABASES.default.HOST      <- TETHYS_DB_HOST (.env; "postgres" service)
+# So edit settings here and `docker compose up` again -- no image rebuild, no script edit.
+version: 2.0
+name:
+apps: {}
+settings:
+  DEBUG: false
+  ALLOWED_HOSTS:
+    - localhost
+    - 127.0.0.1
+    - nginx
+  CSRF_TRUSTED_ORIGINS:
+    - http://localhost:8080
+    - http://127.0.0.1:8080
+    - http://localhost:8000
+    - http://127.0.0.1:8000
+  STATIC_ROOT: /home/tethys/persist/static
+  STATIC_URL: https://cdn.jsdelivr.net/gh/Aquaveo/Production-Workshop-TethysSummit-2026@static-2026.06.08-131712/
+  MEDIA_ROOT: /home/tethys/persist/media
+  MEDIA_URL: /media/
+  TETHYS_WORKSPACES_ROOT: /home/tethys/persist/workspaces
+
+  # Upload limits -- keep aligned with nginx CLIENT_MAX_BODY_SIZE (100m = 104857600 bytes).
+  DATA_UPLOAD_MAX_MEMORY_SIZE: 104857600
+  FILE_UPLOAD_MAX_MEMORY_SIZE: 104857600
+  DATABASES:
+    default:
+      ENGINE: django.db.backends.postgresql
+      NAME: tethys_platform
+      USER: tethys_default
+      HOST: postgres          # the Compose postgres service (no pooler); injected by portal-config.sh
+      PORT: 5432
+  CHANNEL_LAYERS:
+    default:
+      BACKEND: channels_redis.core.RedisChannelLayer
+      CONFIG:
+        hosts:
+          - - redis://valkey:6379/0
+  TETHYS_PORTAL_CONFIG:
+    ENABLE_OPEN_PORTAL: true
+    BYPASS_TETHYS_HOME_PAGE: true
+
+# Site / branding content. Applied to the DB by `tethys site -f` in portal-bootstrap.sh.
+# Fill in values here; empty entries are skipped. (Replaces the SITE_* env vars the old
+# init-tethys.sh translated into `tethys site` flags.)
+site_settings:
+  GENERAL_SETTINGS:
+    site_title:
+    favicon:
+    brand_text:
+    brand_image:
+    brand_image_height:
+    brand_image_width:
+    brand_image_padding:
+    apps_library_title:
+    primary_color:
+    secondary_color:
+    primary_text_color:
+    primary_text_hover_color:
+    secondary_text_color:
+    secondary_text_hover_color:
+    background_color:
+    footer_copyright:
+  HOME_PAGE:
+    hero_text:
+    blurb_text:
+    feature_1_heading:
+    feature_1_body:
+    feature_1_image:
+    feature_2_heading:
+    feature_2_body:
+    feature_2_image:
+    feature_3_heading:
+    feature_3_body:
+    feature_3_image:
+    call_to_action:
+    call_to_action_button:
+  CUSTOM_STYLES:
+    portal_base_css:
+    home_page_css:
+    apps_library_css:
+    accounts_base_css:
+    login_css:
+    register_css:
+    user_base_css:
+  CUSTOM_TEMPLATES:
+    home_page_template:
+    apps_library_template:
+    login_page_template:
+    register_page_template:
+    user_page_template:
+    user_settings_page_template:

@@ -47,6 +47,9 @@ services:
     volumes:
       - tethys_home:/home/tethys/portal
       - tethys_persist:/home/tethys/persist
+      # Declarative portal settings, mounted like the k8s ConfigMap. portal-config.sh
+      # copies this into TETHYS_HOME and injects secrets; web reads it from the shared volume.
+      - ./conf/portal_config.yml:/config/portal_config.yml:ro
     depends_on:
       postgres:
         condition: service_healthy
