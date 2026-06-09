@@ -29,24 +29,23 @@ ENV HOME="/home/tethys" \
     LD_LIBRARY_PATH="/opt/conda/envs/tethys/lib" \
     PATH="/opt/conda/envs/tethys/bin:${PATH}"
 
-# Static / media / workspace roots (reference TETHYS_PERSIST from the block above)
+# Static / media / workspace roots (reference TETHYS_PERSIST from the block above).
+# These are consumed by the `mkdir` in the runtime stage; the Django-facing
+# STATIC_URL/MEDIA_URL/STATIC_ROOT now live declaratively in portal_config.yml.
 ENV STATIC_ROOT="${TETHYS_PERSIST}/static" \
-    STATIC_ROOT_CLEAR="True" \
     WORKSPACE_ROOT="${TETHYS_PERSIST}/workspaces" \
-    MEDIA_ROOT="${TETHYS_PERSIST}/media" \
-    MEDIA_URL="/media/"
+    MEDIA_ROOT="${TETHYS_PERSIST}/media"
 
-# DB + portal defaults (consumed by the Docker-Compose path / init-tethys.sh).
-# In k8s these come from tethys-config.env + portal_config.yml instead.
+# DB + portal infra defaults (fallbacks for the Docker-Compose path; .env overrides).
+# In k8s these come from tethys-config.env. Django/portal SETTINGS and site branding
+# are NOT here -- they are declarative in portal_config.yml (conf/portal_config.yml for
+# Compose, the tethys-portal-config ConfigMap for k8s).
 #
-# NOTE: password/secret values are intentionally NOT baked here -- doing so writes
-# them into a permanent image layer (readable via `docker history`), which trips
-# BuildKit's SecretsUsedInArgOrEnv lint. They are supplied at runtime instead:
-#   - k8s    -> Secrets (tethys-db-app, tethys-secret)
-#   - Compose -> .env / `environment:` in docker-compose.yml
-# and every consuming script already defaults them (e.g. "${TETHYS_DB_PASSWORD:-pass}").
+# NOTE: password/secret values are intentionally NOT stored here -- baking them into an
+# image layer (readable via `docker history`) trips BuildKit's SecretsUsedInArgOrEnv
+# lint. They are supplied at runtime: k8s -> Secrets, Compose -> .env; and the consuming
+# scripts default them (e.g. "${TETHYS_DB_PASSWORD:-pass}").
 ENV TETHYS_PORT=8000 \
-    SKIP_DB_SETUP=false \
     TETHYS_DB_ENGINE="django.db.backends.postgresql" \
     TETHYS_DB_NAME="tethys_platform" \
     TETHYS_DB_USERNAME="tethys_default" \
@@ -55,35 +54,7 @@ ENV TETHYS_PORT=8000 \
     TETHYS_DB_SUPERUSER="tethys_super" \
     PORTAL_SUPERUSER_NAME="" \
     PORTAL_SUPERUSER_EMAIL="" \
-    ASGI_PROCESSES=1 \
-    CLIENT_MAX_BODY_SIZE="75M" \
-    DEBUG="False" \
-    ALLOWED_HOSTS="\"[localhost, 127.0.0.1]\"" \
-    CSRF_TRUSTED_ORIGINS="\"[http://localhost, http://127.0.0.1]\"" \
-    BYPASS_TETHYS_HOME_PAGE="True" \
-    ADD_DJANGO_APPS="\"[]\"" \
-    SESSION_WARN=1500 \
-    SESSION_EXPIRE=1800 \
-    QUOTA_HANDLERS="\"[]\"" \
-    DJANGO_ANALYTICAL="\"{}\"" \
-    ADD_BACKENDS="\"[]\"" \
-    OAUTH_OPTIONS="\"{}\"" \
-    CHANNEL_LAYERS_BACKEND="channels.layers.InMemoryChannelLayer" \
-    CHANNEL_LAYERS_CONFIG="\"{}\"" \
-    RECAPTCHA_PUBLIC_KEY="" \
-    OTHER_SETTINGS=""
-
-# Site / branding defaults (Compose `tethys site` knobs)
-ENV SITE_TITLE="" FAVICON="" BRAND_TEXT="" BRAND_IMAGE="" BRAND_IMAGE_HEIGHT="" \
-    BRAND_IMAGE_WIDTH="" BRAND_IMAGE_PADDING="" APPS_LIBRARY_TITLE="" PRIMARY_COLOR="" \
-    SECONDARY_COLOR="" PRIMARY_TEXT_COLOR="" PRIMARY_TEXT_HOVER_COLOR="" SECONDARY_TEXT_COLOR="" \
-    SECONDARY_TEXT_HOVER_COLOR="" BACKGROUND_COLOR="" COPYRIGHT="" HERO_TEXT="" BLURB_TEXT="" \
-    FEATURE_1_HEADING="" FEATURE_1_BODY="" FEATURE_1_IMAGE="" FEATURE_2_HEADING="" \
-    FEATURE_2_BODY="" FEATURE_2_IMAGE="" FEATURE_3_HEADING="" FEATURE_3_BODY="" FEATURE_3_IMAGE="" \
-    CALL_TO_ACTION="" CALL_TO_ACTION_BUTTON="" PORTAL_BASE_CSS="" HOME_PAGE_CSS="" \
-    APPS_LIBRARY_CSS="" ACCOUNTS_BASE_CSS="" LOGIN_CSS="" REGISTER_CSS="" USER_BASE_CSS="" \
-    HOME_PAGE_TEMPLATE="" APPS_LIBRARY_TEMPLATE="" LOGIN_PAGE_TEMPLATE="" REGISTER_PAGE_TEMPLATE="" \
-    USER_PAGE_TEMPLATE="" USER_SETTINGS_PAGE_TEMPLATE=""
+    ASGI_PROCESSES=1
 
 ###############################################################################
 # builder - everything heavy; nothing here ends up in the final image
