@@ -27,14 +27,20 @@ mkdir -p "$TETHYS_HOME"
 echo "Applying portal config from $PORTAL_CONFIG_SRC"
 cp "$PORTAL_CONFIG_SRC" "$TETHYS_HOME/portal_config.yml"
 
-# Inject secrets (never stored in the ConfigMap).
-tethys settings \
-  --set SECRET_KEY "${TETHYS_SECRET_KEY:?TETHYS_SECRET_KEY is required (from tethys-secret)}" \
+# Inject the values that must NOT live in the ConfigMap -- secrets, plus the
+# environment-specific DB host (Job -> direct primary; web pods -> pooler).
+#
+# Built as one `tethys settings` invocation on purpose: each call cold-boots all of
+# Tethys/Django (seconds), and this script runs in the k8s `configure` initContainer
+# on EVERY web pod start, so we boot once, not once-per-setting.
+set_args=(
+  --set SECRET_KEY "${TETHYS_SECRET_KEY:?TETHYS_SECRET_KEY is required (from tethys-secret)}"
   --set DATABASES.default.PASSWORD "${TETHYS_DB_PASSWORD:?TETHYS_DB_PASSWORD is required (from tethys-db-app)}"
-
-# Environment-specific DB host override (Job -> direct primary; web pods -> pooler).
+)
 if [ -n "${TETHYS_DB_HOST:-}" ]; then
-  tethys settings --set DATABASES.default.HOST "$TETHYS_DB_HOST"
+  set_args+=(--set DATABASES.default.HOST "$TETHYS_DB_HOST")
 fi
+
+tethys settings "${set_args[@]}"
 
 echo "Tethys portal config applied."
