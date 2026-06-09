@@ -160,17 +160,19 @@ k3d image import tethys-workshop:local -c tethys
 
 Up to this point the script at `dev/k8s/setup-cluster.sh` will do most of the heavy lifting, but we need to do the rest now. Which is to play with the `yaml` files
 
-6. Collect the static files
+### Static files (already published - nothing to run)
 
-```bash
-  scripts/publish-static.sh                          # publishes -> prints STATIC_URL with a tag
-```
+Static assets (CSS/JS) are served from the **jsDelivr CDN**, and `STATIC_URL` is already set
+in `k8s/base/portal_config.yml`. As a participant you don't run anything for static - the
+portal loads its assets from the CDN automatically.
 
-paste that STATIC_URL into `k8s/base/portal_config.yml` (the `STATIC_URL:` line under `settings:`). Kustomize generates the `tethys-portal-config` ConfigMap from this file.
+For reference, `scripts/publish-static.sh` is the **maintainer** tool that produced that URL.
+It runs `collectstatic` inside the image, pushes the result to a public `gh-static` branch +
+tag, and prints the `https://cdn.jsdelivr.net/gh/<owner>/<repo>@<tag>/` URL that we pasted into
+`portal_config.yml`. You'd only touch it if you **fork** the repo and change app static (CSS/JS):
+re-run it, bump the `STATIC_URL:` tag in `portal_config.yml`, and `kubectl apply -k k8s/base`.
 
-**Note** Everytime you update the static files: re-run publish-static.sh only when static assets change, and bump the tag on the `STATIC_URL:` line in `k8s/base/portal_config.yml`.
-
-7. Applying the Manifests
+6. Applying the Manifests
 
 All manifests live under `k8s/base/` and are applied together with Kustomize. The `tethys-config` ConfigMap is generated from `k8s/base/tethys-config.env`, so editing that file and re-applying rolls the change out with no image rebuild.
 
@@ -190,7 +192,7 @@ kubectl apply -k k8s/base
 
 > To change config later: edit `k8s/base/tethys-config.env` (or a manifest), then re-run the same two commands above. The web Deployment rolls automatically onto the new hashed ConfigMap (zero-downtime); the init Job is recreated by the delete + apply.
 
-8. Access the portal
+7. Access the portal
 
 The Gateway routes the `localhost` host through the k3d load balancer (`8080:80`), so open:
 
