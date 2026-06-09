@@ -42,3 +42,54 @@ settings:
   TETHYS_PORTAL_CONFIG:
     ENABLE_OPEN_PORTAL: true
     BYPASS_TETHYS_HOME_PAGE: true
+
+# Site / branding content. Applied to the DB by `tethys site -f` in the init Job
+# (portal-bootstrap.sh). Fill in values here; empty entries are skipped. Keys are
+# snake_case and map to Tethys site settings (e.g. site_title -> "Site Title").
+site_settings:
+  GENERAL_SETTINGS:
+    site_title:
+    favicon:
+    brand_text:
+    brand_image:
+    brand_image_height:
+    brand_image_width:
+    brand_image_padding:
+    apps_library_title:
+    primary_color:
+    secondary_color:
+    primary_text_color:
+    primary_text_hover_color:
+    secondary_text_color:
+    secondary_text_hover_color:
+    background_color:
+    footer_copyright:        # was COPYRIGHT
+  HOME_PAGE:
+    hero_text:
+    blurb_text:
+    feature_1_heading:
+    feature_1_body:
+    feature_1_image:
+    feature_2_heading:
+    feature_2_body:
+    feature_2_image:
+    feature_3_heading:
+    feature_3_body:
+    feature_3_image:
+    call_to_action:
+    call_to_action_button:
+  CUSTOM_STYLES:
+    portal_base_css:
+    home_page_css:
+    apps_library_css:
+    accounts_base_css:
+    login_css:
+    register_css:
+    user_base_css:
+  CUSTOM_TEMPLATES:
+    home_page_template:
+    apps_library_template:
+    login_page_template:
+    register_page_template:
+    user_page_template:
+    user_settings_page_template:
