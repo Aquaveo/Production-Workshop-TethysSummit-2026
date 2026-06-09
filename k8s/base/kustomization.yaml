@@ -22,12 +22,10 @@ configMapGenerator:
   - name: tethys-portal-config
     files:
       - portal_config.yml
-
 # Central image management (re-tag here instead of editing every manifest).
 images:
   - name: tethys-workshop
     newTag: local
-
 # Single source of truth for the app port: TETHYS_PORT (in tethys-config.env).
 # Kustomize copies it into every int port field; the env consumers (uvicorn's PORT,
 # nginx's ${TETHYS_PORT}) read the same ConfigMap key. Change it in ONE place.
