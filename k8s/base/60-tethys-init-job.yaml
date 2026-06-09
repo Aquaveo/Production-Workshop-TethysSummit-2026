@@ -7,6 +7,11 @@ spec:
   completions: 1
   parallelism: 1          # never >1 - parallel migrate is the race we're avoiding
   backoffLimit: 3         # retries are sequential → still safe
+  # Auto-delete the Job 120s after it finishes, so a later `kubectl apply -k` creates a
+  # fresh Job instead of failing to patch the (immutable) template of a lingering one.
+  # No more manual `kubectl delete job` before re-applying -- unless you re-apply within
+  # this window (raise it if you want completed-Job logs to stick around longer).
+  ttlSecondsAfterFinished: 120
   template:
     spec:
       restartPolicy: OnFailure

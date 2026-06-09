@@ -176,10 +176,10 @@ re-run it, bump the `STATIC_URL:` tag in `portal_config.yml`, and `kubectl apply
 
 All manifests live under `k8s/base/` and are applied together with Kustomize. The `tethys-config` ConfigMap is generated from `k8s/base/tethys-config.env`, so editing that file and re-applying rolls the change out with no image rebuild.
 
-The init Job's pod template is immutable, so delete any previous run before (re)applying:
+Apply everything together (the init Job auto-cleans after it finishes via
+`ttlSecondsAfterFinished`, so re-applies create a fresh Job — no manual delete needed):
 
 ```bash
-kubectl delete job tethys-init -n tethys-k8 --ignore-not-found
 kubectl apply -k k8s/base
 ```
 
@@ -272,7 +272,6 @@ spec:
 
 Apply (both are in the manifests now):
 ```bash
-kubectl delete job tethys-init -n tethys-k8 --ignore-not-found
 kubectl apply -k k8s/base
 kubectl rollout status deploy/tethys-web -n tethys-k8
 ```
@@ -399,7 +398,6 @@ TETHYS_DB_HOST=tethys-postgres-rw          # was tethys-postgres-pooler-rw
 CONN_MAX_AGE: 60                            # persistent conns pile up (with 0 they're transient)
 ```
 ```bash
-kubectl delete job tethys-init -n tethys-k8 --ignore-not-found
 kubectl apply -k k8s/base
 kubectl rollout status deploy/tethys-web -n tethys-k8
 ```
