@@ -325,5 +325,98 @@ Contrast: `kubectl scale deploy/tethys-web --replicas=1`, kill the pod → you'l
 - Single host (k3d-on-WSL): pod-level resilience, not node/infra HA.
 - The sequential probe shows the **memory/OOM** lesson; **workers** only show up under
   **concurrent** load (the `hey` step).
-- DB failover is a separate demo (a brief blip while CNPG promotes a replica - not zero-downtime).
+- DB failover has its own demo below (a brief blip while CNPG promotes a replica - not zero-downtime).
+
+---
+
+## Database HA & pooling
+
+The web tier isn't the only thing that's resilient - Postgres runs **3 CNPG instances**
+(1 primary + 2 replicas) behind a **PgBouncer pooler** (2 instances). Two short demos show why.
+
+### Demo 1 - Automatic failover (the value of `instances: 3`)
+
+**Claim:** killing the Postgres *primary* isn't an outage - CNPG promotes a replica on its own.
+
+```bash
+# topology: one primary, two replicas
+kubectl get pods -n tethys-k8 -l cnpg.io/cluster=tethys-postgres -L cnpg.io/instanceRole
+
+# probe a DB-touching page in another terminal:
+dev/k8s/ha-probe.sh http://localhost:8080/apps/
+
+# kill the PRIMARY, then watch a replica take over:
+kubectl delete pod -n tethys-k8 -l cnpg.io/cluster=tethys-postgres,cnpg.io/instanceRole=primary
+kubectl get pods -n tethys-k8 -l cnpg.io/cluster=tethys-postgres -L cnpg.io/instanceRole -w
+```
+**What you see:** a **brief** burst of failures (a few seconds while CNPG promotes a replica,
+repoints the `tethys-postgres-rw` Service, and the pooler reconnects), then recovery - with
+**no manual action**. A different pod is now `primary`.
+
+> ⚠ DB failover is **not** zero-downtime like the web rollout: writes are unavailable for a few
+> seconds during promotion. That's expected - the win is *automatic* recovery.
+
+**Contrast:** with `instances: 1` the same kill is a long outage (the single pod must fully
+restart, with no replica to promote). 3 instances → seconds.
+
+### Demo 2 - The pooler caps DB connections (scale web, don't exhaust Postgres)
+
+**Claim:** the pooler lets you scale web pods without running Postgres out of connections.
+
+> ⚠ **Connections only pile up under *concurrent* load** - and you must **watch the count *during*
+> the load**. The sequential `ha-probe.sh` opens one connection at a time, so it won't show anything
+> here; use a concurrent load generator.
+
+```bash
+PRIMARY=$(kubectl get pods -n tethys-k8 \
+  -l cnpg.io/cluster=tethys-postgres,cnpg.io/instanceRole=primary -o name)
+kubectl scale deploy/tethys-web -n tethys-k8 --replicas=8
+
+# Terminal 1 - live DB connection count:
+watch -n1 "kubectl exec -n tethys-k8 $PRIMARY -c postgres -- \
+  psql -U postgres -d tethys_platform -tAc \
+  \"select count(*) from pg_stat_activity where datname='tethys_platform'\""
+
+# Terminal 2 - CONCURRENT load (counts the HTTP status codes):
+seq 1 12000 | xargs -P 200 -n1 -I{} curl -s -o /dev/null -w "%{http_code}\n" \
+  --max-time 15 http://localhost:8080/apps/ | sort | uniq -c
+```
+
+#### With the pooler (the default) - connections stay bounded
+Run the load above as-is. **You see:** the count stays **flat (~25-30)** no matter the load or the
+8 replicas, and every request is **200**. The pooler multiplexes all those clients onto a small,
+fixed set of server connections (~`default_pool_size` × 2 pooler instances). **That flat number is
+the whole point.**
+
+#### Bypass the pooler - exhaust Postgres
+Two changes make connections accumulate against the DB directly:
+```
+# k8s/base/tethys-config.env   <-- THIS is the lever.
+# (Editing HOST in portal_config.yml does NOT work: the image's ENV TETHYS_DB_HOST="db"
+#  is non-empty, so portal-config.sh always stamps the env value over the file.)
+TETHYS_DB_HOST=tethys-postgres-rw          # was tethys-postgres-pooler-rw
+# k8s/base/portal_config.yml
+CONN_MAX_AGE: 60                            # persistent conns pile up (with 0 they're transient)
+```
+```bash
+kubectl delete job tethys-init -n tethys-k8 --ignore-not-found
+kubectl apply -k k8s/base
+kubectl rollout status deploy/tethys-web -n tethys-k8
+```
+Re-run the same load. **You see:** the count **climbs to ~97** (Postgres `max_connections` 100,
+minus a few reserved for superusers) and the load floods with **500s**:
+```bash
+kubectl logs -n tethys-k8 -l app=tethys-web --tail=200 | grep "too many clients"
+#  FATAL: sorry, too many clients already
+```
+That's exactly what the pooler prevents - and why a many-replica web tier in front of one Postgres
+needs one.
+
+#### Reset when done
+```bash
+# tethys-config.env: TETHYS_DB_HOST=tethys-postgres-pooler-rw
+# portal_config.yml:  CONN_MAX_AGE: 0
+kubectl apply -k k8s/base
+kubectl scale deploy/tethys-web -n tethys-k8 --replicas=2
+```
 
