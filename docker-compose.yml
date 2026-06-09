@@ -13,6 +13,9 @@ services:
       TETHYS_DB_PASSWORD: ${TETHYS_DB_PASSWORD:-pass}
       TETHYS_DB_SUPERUSER: ${TETHYS_DB_SUPERUSER:-tethys_super}
       TETHYS_DB_SUPERUSER_PASS: ${TETHYS_DB_SUPERUSER_PASS:-pass}
+      # Least-privilege role for app persistent stores (Option B): CREATEDB, non-super.
+      TETHYS_APP_DB_USERNAME: ${TETHYS_APP_DB_USERNAME:-tethys_app}
+      TETHYS_APP_DB_PASSWORD: ${TETHYS_APP_DB_PASSWORD:-pass}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Runs ONCE on first boot (empty data dir) -- creates roles + db.

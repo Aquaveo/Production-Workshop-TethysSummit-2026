@@ -84,11 +84,15 @@ RUN uv python install 3.12 \
   && uv pip install --no-cache -r pyproject.toml \
   && tethys gen portal_config
 
-# Workshop app (installed into the venv; the clone is build-only)
-RUN git clone https://github.com/tethysplatform/tethysapp-population_viewer.git \
-      "${TETHYS_APPS_ROOT}/tethysapp-population_viewer" \
-  && uv pip install --no-cache \
-      "${TETHYS_APPS_ROOT}/tethysapp-population_viewer/tethysapp-population_app"
+# Workshop app: Dam Inventory (advanced solution, pinned to the immutable tag
+# advanced-4.5). It features a persistent store ("primary_db") -- the showcase for the
+# least-privilege tethys_app role + scripts/provision-persistent-store.sh. The package
+# lives at the repo root. `plotly` is an app dependency (hydrograph plots); sqlalchemy<2
+# is already satisfied by tethys-platform (1.4.x). The clone is build-only.
+RUN git clone --depth 1 --branch advanced-4.5 \
+      https://github.com/tethysplatform/tethysapp-dam_inventory.git \
+      "${TETHYS_APPS_ROOT}/tethysapp-dam_inventory" \
+  && uv pip install --no-cache plotly "${TETHYS_APPS_ROOT}/tethysapp-dam_inventory"
 
 # world-readable so it works even if the image is ever run as non-root
 RUN chmod -R a+rX /opt/python /opt/conda

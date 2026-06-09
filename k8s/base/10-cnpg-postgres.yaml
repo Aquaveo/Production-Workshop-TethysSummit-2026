@@ -18,6 +18,16 @@ stringData:
   username: tethys_super
   password: pass
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tethys-db-app-store
+  namespace: tethys-k8
+type: kubernetes.io/basic-auth
+stringData:
+  username: tethys_app
+  password: pass
+---
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -44,6 +54,15 @@ spec:
         createdb: true
         passwordSecret:
           name: tethys-db-super
+      # Least-privilege role for app persistent stores (Option B): owns its store
+      # databases (createdb) but is NOT a superuser -> the app never runs as super.
+      - name: tethys_app
+        ensure: present
+        login: true
+        superuser: false
+        createdb: true
+        passwordSecret:
+          name: tethys-db-app-store
 
   storage:
     storageClass: local-path
