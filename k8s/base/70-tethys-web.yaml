@@ -91,8 +91,15 @@ spec:
           imagePullPolicy: Never
           command: ["/usr/local/bin/start-uvicorn.sh"]
           ports:
-            - containerPort: 8000
+            - name: http
+              containerPort: 8000   # set from TETHYS_PORT via kustomize replacements
           env:
+            # uvicorn binds to $PORT (start-uvicorn.sh). Single source: TETHYS_PORT.
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: tethys-config
+                  key: TETHYS_PORT
             - name: TETHYS_DB_PASSWORD
               valueFrom:
                 secretKeyRef:

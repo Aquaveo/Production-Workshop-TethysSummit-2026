@@ -24,6 +24,15 @@ settings:
   MEDIA_ROOT: /var/lib/tethys_persist/media
   MEDIA_URL: /media/
   TETHYS_WORKSPACES_ROOT: /var/lib/tethys_persist/workspaces
+
+  # Upload limits - keep aligned with nginx client_max_body_size (CLIENT_MAX_BODY_SIZE).
+  # 100 MiB = 100 * 1024 * 1024 = 104857600 bytes (matches nginx "100m").
+  # DATA_UPLOAD_MAX_MEMORY_SIZE: the request-body size that triggers a 400 (RequestDataTooBig)
+  #   for non-file form data -> this is the one that "rejects"; raise it to match nginx.
+  # FILE_UPLOAD_MAX_MEMORY_SIZE: memory-vs-disk threshold (files larger than this stream to a
+  #   temp file). NOT a hard limit; lower it to save RAM, larger files just spill to disk.
+  DATA_UPLOAD_MAX_MEMORY_SIZE: 104857600
+  FILE_UPLOAD_MAX_MEMORY_SIZE: 104857600
   DATABASES:
     default:
       ENGINE: django.db.backends.postgresql

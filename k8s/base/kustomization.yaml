@@ -27,3 +27,27 @@ configMapGenerator:
 images:
   - name: tethys-workshop
     newTag: local
+
+# Single source of truth for the app port: TETHYS_PORT (in tethys-config.env).
+# Kustomize copies it into every int port field; the env consumers (uvicorn's PORT,
+# nginx's ${TETHYS_PORT}) read the same ConfigMap key. Change it in ONE place.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: tethys-config
+      fieldPath: data.TETHYS_PORT
+    targets:
+      - select:
+          kind: Deployment
+          name: tethys-web
+        fieldPaths:
+          - spec.template.spec.containers.[name=tethys-web].ports.[name=http].containerPort
+          - spec.template.spec.containers.[name=tethys-web].startupProbe.tcpSocket.port
+          - spec.template.spec.containers.[name=tethys-web].readinessProbe.httpGet.port
+          - spec.template.spec.containers.[name=tethys-web].livenessProbe.tcpSocket.port
+      - select:
+          kind: Service
+          name: tethys-web
+        fieldPaths:
+          - spec.ports.[name=http].port
+          - spec.ports.[name=http].targetPort
