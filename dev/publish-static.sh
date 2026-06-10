@@ -11,7 +11,7 @@
 #   4. prints the STATIC_URL to paste into k8s/40-tethys-config.yaml
 #
 # Usage:
-#   scripts/publish-static.sh [IMAGE]
+#   dev/publish-static.sh [IMAGE]
 # Env overrides:
 #   STATIC_REPO_URL  git remote to push to   (default: this repo's origin)
 #   STATIC_BRANCH    branch to hold static   (default: gh-static)
@@ -32,7 +32,7 @@ cid=""
 trap '[ -n "$cid" ] && docker rm -f "$cid" >/dev/null 2>&1; rm -rf "$workdir" "$staticdir"' EXIT
 
 # 1. Generate static inside a throwaway container, then copy it out.
-#    - `tethys settings --set STATIC_ROOT /collected` pins a known output dir: the
+#    - `tethys settings --set STATIC_ROOT /tmp/collected` pins a known output dir: the
 #      image's portal_config has no STATIC_ROOT, so Django would otherwise default
 #      it to /home/tethys/persist/static.
 #    - `tethys db migrate` first: migrate is the ONLY command exempt from Tethys's
@@ -44,13 +44,13 @@ trap '[ -n "$cid" ] && docker rm -f "$cid" >/dev/null 2>&1; rm -rf "$workdir" "$
 echo "==> Collecting static in image: $IMAGE"
 cid="$(docker create "$IMAGE" bash -c '
   set -euo pipefail
-  mkdir -p /collected
-  tethys settings --set STATIC_ROOT /collected >/dev/null
+  mkdir -p /tmp/collected
+  tethys settings --set STATIC_ROOT /tmp/collected >/dev/null
   tethys db migrate >/dev/null
   tethys manage collectstatic --noinput
 ')"
 docker start -a "$cid"
-docker cp "$cid:/collected/." "$staticdir/"
+docker cp "$cid:/tmp/collected/." "$staticdir/"
 docker rm -f "$cid" >/dev/null; cid=""
 [ -n "$(ls -A "$staticdir")" ] || { echo "ERROR: collectstatic produced no files" >&2; exit 1; }
 

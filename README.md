@@ -171,7 +171,7 @@ Static assets (CSS/JS) are served from the **jsDelivr CDN**, and `STATIC_URL` is
 in `k8s/base/portal_config.yml`. As a participant you don't run anything for static - the
 portal loads its assets from the CDN automatically.
 
-For reference, `scripts/publish-static.sh` is the **maintainer** tool that produced that URL.
+For reference, `dev/publish-static.sh` is the **maintainer** tool that produced that URL.
 It runs `collectstatic` inside the image, pushes the result to a public `gh-static` branch +
 tag, and prints the `https://cdn.jsdelivr.net/gh/<owner>/<repo>@<tag>/` URL that we pasted into
 `portal_config.yml`. You'd only touch it if you **fork** the repo and change app static (CSS/JS):
@@ -227,22 +227,17 @@ settings, learn **why**, tune two levers, and watch it **pass**.
 
 ---
 
-> ⚠ **This capacity/OOM demo was written for the old population app**, whose page was
-> deliberately heavy (~3s, memory-hungry) and reliably OOM-killed a 512Mi pod. The **Dam
-> Inventory** app's pages are *light*, so they will **not** reproduce the OOM below. The HA
-> mechanics (OOM → 502 → restart, replicas, HPA) are unchanged and still worth teaching — you
-> just need a load source that actually stresses the pod. With Dam Inventory the natural driver
-> is its **persistent store under read/write load** (the pooler demo). This section is kept for
-> the mechanics; treat the "heavy page" specifics as illustrative until it's repointed at a
-> DB-load endpoint.
+> This capacity/OOM demo uses the **population** app (`/apps/population-app/`), whose page is
+> deliberately heavy (~3s, memory-hungry) and reliably OOM-kills a 512Mi pod. (The **Dam
+> Inventory** app is the *light* one used for the persistent-store / pooler demo.)
 
 ## Phase 1 - Watch it fail (default: 512Mi, 1 worker)
 
-Point the probe at the app (a genuinely heavy / DB-stressing page is what triggers the failure):
+Point the probe at a **heavy** app page:
 ```bash
-dev/k8s/ha-probe.sh http://localhost:8080/apps/dam-inventory/
+dev/k8s/ha-probe.sh http://localhost:8080/apps/population-app/
 ```
-With a heavy enough page you'll see a storm of `DOWN -> 502` and `FAIL` climbing.
+Within seconds you'll see a storm of `DOWN -> 502` and `FAIL` climbing.
 
 Diagnose in another terminal:
 ```bash
@@ -252,7 +247,7 @@ kubectl get pods -n tethys-k8 -l app=tethys-web \
 #  -> OOMKilled
 ```
 
-**What's happening (with a heavy page):** rendering a memory-hungry page
+**What's happening:** the population-app page is heavy (~3s, memory-hungry). Rendering it
 pushes the pod past its **512Mi** limit, so the kernel **OOM-kills** the container (exit 137).
 The pod restarts (a few seconds of downtime) → the proxy returns **502** for requests routed
 to it. With a **single uvicorn worker**, the pod also can't overlap requests. The HPA scales
@@ -295,15 +290,15 @@ kubectl rollout status deploy/tethys-web -n tethys-k8
 
 ## Phase 3 - Re-run, watch it pass
 ```bash
-dev/k8s/ha-probe.sh http://localhost:8080/apps/dam-inventory/
+dev/k8s/ha-probe.sh http://localhost:8080/apps/population-app/
 ```
-Now: **no OOM, no 502s** - requests return `200`. (With a heavy page each render is still
-slow, but it no longer crashes.) `kubectl get pods` shows **0 new restarts**.
+Now: **no OOM, no 502s** - requests return `200`. (Each is still ~3s; the page is genuinely
+heavy, but it no longer crashes.) `kubectl get pods` shows **0 new restarts**.
 
 **Optional - prove concurrency scales with replicas.** The sequential probe above sends one
 request at a time. Throw concurrent load and watch the HPA add pods:
 ```bash
-hey -z 60s -c 20 http://localhost:8080/apps/dam-inventory/   # 20 concurrent for 60s
+hey -z 60s -c 20 http://localhost:8080/apps/population-app/   # 20 concurrent for 60s
 kubectl get hpa tethys-web -n tethys-k8 -w                    # replicas scale 2..8 on CPU
 ```
 More replicas spread the concurrent load, so throughput holds instead of collapsing.

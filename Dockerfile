@@ -94,6 +94,13 @@ RUN git clone --depth 1 --branch advanced-4.5 \
       "${TETHYS_APPS_ROOT}/tethysapp-dam_inventory" \
   && uv pip install --no-cache plotly "${TETHYS_APPS_ROOT}/tethysapp-dam_inventory"
 
+# Second workshop app: Population Viewer -- a deliberately HEAVY, memory-hungry page.
+# Kept for the capacity / OOM-under-memory-pressure demo (Dam Inventory's pages are light).
+RUN git clone https://github.com/tethysplatform/tethysapp-population_viewer.git \
+      "${TETHYS_APPS_ROOT}/tethysapp-population_viewer" \
+  && uv pip install --no-cache \
+      "${TETHYS_APPS_ROOT}/tethysapp-population_viewer/tethysapp-population_app"
+
 # world-readable so it works even if the image is ever run as non-root
 RUN chmod -R a+rX /opt/python /opt/conda
 

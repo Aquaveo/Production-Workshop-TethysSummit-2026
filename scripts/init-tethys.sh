@@ -14,7 +14,7 @@ set -euo pipefail
 #
 # Handled elsewhere (same as k8s), so intentionally NOT here:
 #   - DB + roles -> Postgres on first boot (conf/postgres-initdb/10-create-tethys-db.sh)
-#   - static     -> jsDelivr CDN (scripts/publish-static.sh + STATIC_URL in portal_config.yml)
+#   - static     -> jsDelivr CDN (dev/publish-static.sh + STATIC_URL in portal_config.yml)
 #
 # All three steps are idempotent, so this runs cleanly on every `docker compose up`
 # and picks up edits to conf/portal_config.yml (no init_complete guard needed).
