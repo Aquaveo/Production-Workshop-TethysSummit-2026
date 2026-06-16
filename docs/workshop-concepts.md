@@ -1,0 +1,314 @@
+# Workshop Concepts - Questions, Misconceptions, and Why They Improve Tethys Deployments
+
+This document distills the **conceptual** questions raised while modernizing the Tethys
+deployment (Docker-Compose + k3d/Kubernetes). Each entry follows the same shape:
+
+> **The question** → **The misconception (if any)** → **The concept** → **What it changes / optimizes**
+
+It is meant to be read aloud as workshop material: the "before" is how Tethys is commonly
+deployed today; the "after" is where this work lands.
+
+---
+
+## 1. Why not put passwords in the Dockerfile?
+
+**Question:** "How do you fix the `SecretsUsedInArgOrEnv` lint warnings?"
+
+**Misconception:** *"`ENV DB_PASSWORD=...` in the Dockerfile is fine - it's just a default."*
+
+**Concept - image layers are public.** Every `ENV` / `ARG` is baked into an image layer
+and is readable forever via `docker history` / `docker inspect`, even if a later layer
+"overwrites" it. An image is a distributable artifact; treat anything in it as published.
+
+```
+BAKED INTO IMAGE (readable via docker history)   INJECTED AT RUNTIME (never in a layer)
+  TETHYS_DB_NAME       non-secret  ✅               TETHYS_DB_PASSWORD   ← .env / k8s Secret
+  TETHYS_DB_USERNAME   non-secret  ✅               TETHYS_SECRET_KEY    ← .env / k8s Secret
+  TETHYS_DB_HOST       non-secret  ✅               PORTAL_SUPERUSER_PASSWORD
+                                                    scripts default: "${TETHYS_DB_PASSWORD:-pass}"
+```
+
+**What it changes for Tethys:** the same image is safe to push to a shared/public registry.
+Secrets live in `.env` (Compose) or `Secret` objects (k8s) - rotated without rebuilding the
+image. One image, many environments.
+
+---
+
+## 2. What does it actually take to run as non-root?
+
+**Question:** "What do we need to avoid running the container as root?"
+
+**Misconception:** *"Add `USER 1000` at the end and `chown -R` the directories."*
+
+**Concept - ownership by construction beats chown.** A non-root user can only write where it
+owns the path. The cheap way to guarantee that is to **switch user first, then create the
+directories** - they're born owned by that user. No recursive `chown` (which is slow and
+bloats a layer) anywhere.
+
+```
+USER 1000:1000                       ← switch FIRST
+RUN mkdir -p /home/tethys/{portal,log,persist,apps,...}   ← created AS 1000 → owned by 1000
+```
+
+**What it changes for Tethys:** the container drops root entirely. On k8s this is enforced by a
+`securityContext` (`runAsNonRoot`, `runAsUser/Group: 1000`, `seccompProfile: RuntimeDefault`),
+which satisfies Pod Security Standards "restricted" - the bar most clusters now require.
+
+---
+
+## 3. Why `useradd --create-home`, specifically?
+
+**Question:** "Why do we need `RUN useradd --uid 1000 --create-home --home-dir /home/tethys ...`?"
+
+**Misconception:** *"A uid is just a number - `USER 1000` is enough, I don't need a real user."*
+
+**Concept - software expects a passwd entry.** Two distinct things come from `useradd`:
+1. **`--create-home`** → `/home/tethys` is owned by uid 1000. That ownership is what makes the
+   "create dirs after USER" trick work.
+2. **The passwd entry itself** → `getpwuid(1000)` resolves, so `os.path.expanduser("~")`,
+   the Python venv, and Django's startup find a real home. A bare numeric uid breaks these.
+
+**What it changes for Tethys:** Tethys/Django start cleanly as a non-root, *named* user - no
+"`KeyError: getpwuid(): uid not found`" surprises, no `HOME` hacks.
+
+---
+
+## 4. Put state under `$HOME`, not system dirs
+
+**Question:** "What about using standard paths that don't require root for `TETHYS_HOME`, etc.?"
+
+**Misconception:** *"Tethys must live in `/usr/lib/...` and `/var/lib/...` like a system service."*
+
+**Concept - relocate writable state under the user's home.** System dirs are root-owned; writing
+there forces either root or chown. Putting *all mutable Tethys state* under `/home/tethys`
+(owned by 1000) removes the conflict entirely.
+
+```
+BEFORE (root-owned, needs chown)      AFTER (owned by uid 1000, zero chown)
+  /usr/lib/tethys              →        /home/tethys/portal    (TETHYS_HOME)
+  /var/log/tethys              →        /home/tethys/log       (TETHYS_LOG)
+  /var/lib/tethys/persist      →        /home/tethys/persist   (TETHYS_PERSIST)
+                                        /home/tethys/apps      (TETHYS_APPS_ROOT)
+```
+
+**What it changes for Tethys:** one ownership boundary (`/home/tethys`) instead of scattered
+root-owned dirs. Applied identically to Compose **and** k8s, so both run on the *same* non-root
+image - the deployments stay in lockstep.
+
+---
+
+## 5. Unprivileged nginx can't bind low ports
+
+**Question:** "Do the unprivileged-nginx follow-up."
+
+**Misconception:** *"nginx always listens on 80."*
+
+**Concept - ports below 1024 require a capability (`CAP_NET_BIND_SERVICE`) a non-root process
+doesn't have.** The unprivileged nginx image (uid 101) therefore listens on **8080**; the
+platform maps the public port to it.
+
+```
+nginx listens 8080  (not 80)        Compose: 8080:8080
+                                    k8s Service: port 80 → targetPort 8080
+```
+
+**What it changes for Tethys:** the *entire* request path is non-root - app tier (uid 1000) and
+proxy tier (uid 101). Nothing in the stack needs root.
+
+---
+
+## 6. Provisioning belongs to the database, not the app
+
+**Question:** "Move user/DB creation to Postgres instead of `tethys db createsuperuser`."
+
+**Misconception:** *"Tethys needs a superuser connection so it can create its own roles and
+database at startup."*
+
+**Concept - separate one-time provisioning from steady-state runtime.** The database creating
+*itself* (roles, DB) is a privileged, one-time act. The app *using* it is a recurring,
+low-privilege act. Conflating them means the app holds superuser forever. Postgres has a
+first-boot hook built for exactly the provisioning half:
+
+```
+/docker-entrypoint-initdb.d/10-create-tethys-db.sh   (runs ONCE, as the postgres superuser)
+   CREATE ROLE tethys_default LOGIN PASSWORD ...                 (owns the DB)
+   CREATE ROLE tethys_super   LOGIN SUPERUSER CREATEDB ...
+   CREATE ROLE tethys_app     LOGIN CREATEDB ...                 (least-privilege, see §9)
+   CREATE DATABASE tethys_platform OWNER tethys_default
+```
+
+This mirrors CloudNativePG's `bootstrap.initdb` on the k8s side - same idea, two platforms.
+
+**What it changes for Tethys:** the app no longer needs superuser to bootstrap. Provisioning is
+auditable, declarative, and runs exactly once. The runtime role is least-privilege.
+
+---
+
+## 7. Config scripts are convergence, not installation
+
+**Question:** "Don't `portal-config.sh` / `portal-bootstrap.sh` only need to run once?"
+
+**Misconception:** *"These are install steps - gate them with an `init_complete` flag so they
+never run again."*
+
+**Concept - idempotent reconcile loop vs one-shot installer.** These scripts re-apply
+*desired state* (settings, branding, superuser) from a declarative source every deploy. Running
+them again is cheap and **corrects drift** - if someone edits `portal_config.yml`, the next
+deploy reflects it. A one-shot guard would freeze the first-ever config forever.
+
+```
+One-shot installer (rejected)        Convergence script (chosen)
+  if init_complete: skip               run every deploy (idempotent)
+  → config edits never propagate       → edits to portal_config.yml take effect next `up`
+```
+
+**What it changes for Tethys:** configuration becomes **declarative and GitOps-friendly**.
+Edit the mounted `portal_config.yml`, redeploy, done - no manual `tethys settings --set`,
+no rebuild (mounted files don't need one).
+
+> **Operational corollary (a real gotcha we hit):** mounted files (`portal_config.yml`) apply on
+> `up`, but `scripts/*.sh` are **COPY'd into the image** - editing one requires
+> `docker compose build` before `up`. Mount = no rebuild; baked = rebuild.
+
+---
+
+## 8. A pooler multiplexes connections; transaction mode is the catch
+
+**Question:** "Can you add a pooler to the Docker Compose? How does it show a benefit?"
+
+**Misconception:** *"More web workers = more Postgres connections; that's just how it scales."*
+
+**Concept - Postgres connections are expensive and finite; pool in front of them.** PgBouncer in
+**transaction mode** binds a server connection to a client only for the duration of one
+transaction, so hundreds of clients share a handful of server connections.
+
+```
+        many web requests
+              │
+              ▼
+      ┌──────────────┐   transaction-mode   ┌──────────┐
+ web →│   pgbouncer  │ ───────────────────► │ postgres │
+      │ 1000 clients │  60 clients ≈ 3 conns│          │
+      │  pool_size 25│                       └──────────┘
+      └──────────────┘
+ init / migrations BYPASS the pooler → connect DIRECT (DDL needs a real session)
+```
+
+**The catch - transaction mode breaks *session-scoped* state**, not writes:
+`✗ server-side prepared statements ✗ session SET/GUCs ✗ advisory locks ✗ LISTEN/NOTIFY
+✗ WITH HOLD cursors ✗ temp tables`. Django must set `DISABLE_SERVER_SIDE_CURSORS: true` and
+`CONN_MAX_AGE: 0` to be safe.
+
+**What it changes for Tethys:** Tethys can scale web workers without exhausting Postgres
+connections. Proven: 60 concurrent clients collapsed to ~3 server connections.
+
+---
+
+## 9. The privilege ladder (and what a persistent store actually needs)
+
+**Question:** "Do the persistent-store steps (create service → link → syncstores) require superuser?"
+
+**Misconception:** *"Creating databases, tables, and extensions all needs superuser."*
+
+**Concept - privileges are a ladder, and most rungs are below superuser:**
+
+```
+CREATE TABLE        ← needs schema CREATE, granted by OWNING the schema   (NOT superuser)
+CREATE DATABASE     ← needs the CREATEDB role attribute                   (NOT superuser)
+CREATE EXTENSION postgis / CREATE ROLE SUPERUSER  ← genuinely SUPERUSER-only
+```
+
+So a **non-super role with CREATEDB** can provision a *non-spatial* persistent store completely.
+`dam_inventory`'s `primary_db` is non-spatial → no superuser needed.
+
+**What it changes for Tethys:** persistent-store provisioning drops from "superuser" to a
+narrowly-scoped `tethys_app` role (`LOGIN CREATEDB`, non-super) - least privilege end to end.
+
+---
+
+## 10. The big one: writes do NOT break through the pooler
+
+**Question:** "After `syncstores`, the app runs as superuser. If I flip the host to the pooler,
+won't writes break? Do I need two stores - one for reads via the pooler, one for writes via Postgres?"
+
+**Misconception (two layered ones):**
+1. *"Writes break through a transaction-mode pooler."*
+2. *"Therefore I need a split read-store / write-store topology."*
+
+**Concept - transaction pooling is per-transaction; a write IS a transaction.** What breaks is
+*session-scoped state that must survive across transactions* (prepared statements, advisory
+locks, temp tables...). INSERT/UPDATE/DELETE/CREATE TABLE are self-contained transactions and pass
+through fine. **Empirically disproven the misconception:** 500 inserts + 250 updates + deletes,
+as a *non-super* role, through *transaction-mode* PgBouncer → exit 0.
+
+```
+The real problem was never WRITES - it was ROLE COUPLING:
+  Tethys uses ONE persistent-store service for BOTH syncstores (DDL) AND runtime queries,
+  so the app runs as whatever role provisioned it.
+
+  Wrong fix:  two stores (read via pooler / write via postgres)   ← solves a non-problem
+  Right fix:  provision as a least-privilege role (tethys_app)    ← fixes the actual coupling
+```
+
+**What it changes for Tethys:** a single store, behind the pooler, owned by a least-privilege
+role. No split topology, no superuser at runtime. This is the conceptual heart of the workshop -
+the database wiring people *think* they need is more complex than what they *actually* need.
+
+---
+
+## 11. Non-super users can create tables (because they own the schema)
+
+**Question:** "Can non-super users create tables? That's what's throwing me off."
+
+**Misconception:** *"`CREATE TABLE` is a privileged operation, so the role must be elevated."*
+
+**Concept - `CREATE TABLE` requires `CREATE` on the *schema*, which ownership grants.** Since
+`tethys_default` owns `tethys_platform`, it owns the `public` schema, so it can create tables -
+no superuser involved. (Note PG15+: `PUBLIC` lost `CREATE` on `public`; only the DB owner has it
+by default - which is exactly the role Tethys uses.)
+
+**What it changes for Tethys:** confidence that the least-privilege model is sufficient. The app
+role owns its data and can fully manage it without elevation.
+
+---
+
+## 12. Image-runtime tools vs host-maintainer tools
+
+**Question:** "I moved `publish-static.sh` to `dev/` because we don't need it in the image. Am I wrong?"
+
+**Misconception:** *"All the project's scripts belong in `scripts/` and get shipped in the image."*
+
+**Concept - sort scripts by *where they execute*, not by "they're all scripts."**
+
+```
+scripts/  → runs INSIDE the container, baked into the image
+            portal-config, db-migrations, portal-bootstrap, init-tethys,
+            start-uvicorn, provision-persistent-store   (needs the tethys CLI at runtime)
+
+dev/      → runs on the HOST, as a maintainer
+            publish-static.sh         (docker create / docker cp / git push)
+            k8s/setup-cluster.sh, k8s/ha-probe.sh
+```
+
+`publish-static.sh` orchestrates Docker and Git *from the host* - it never runs in the container,
+so baking it in was dead weight. `provision-persistent-store.sh` staying in `scripts/` proves the
+rule: it runs *inside* via `exec` and needs the Tethys CLI.
+
+**What it changes for Tethys:** a cleaner, smaller image and an obvious mental model - if a script
+needs the runtime, it's in the image; if it drives the host/cluster, it's a `dev/` tool.
+
+---
+
+## One-slide summary: before → after
+
+| Dimension            | Common Tethys deploy (before)        | This workshop (after)                          |
+|----------------------|--------------------------------------|------------------------------------------------|
+| Secrets              | baked into image `ENV`               | injected at runtime (`.env` / k8s Secret)      |
+| User                 | root                                 | non-root uid 1000 (+ nginx uid 101)            |
+| State location       | scattered root-owned system dirs     | one home-owned tree `/home/tethys/*`           |
+| DB/role creation     | Tethys w/ superuser at startup       | Postgres first-boot hook / CNPG `initdb`       |
+| App DB role          | superuser at runtime                 | least-privilege `tethys_app` (CREATEDB)        |
+| Config               | imperative `tethys settings --set`   | declarative mounted `portal_config.yml`        |
+| Connections          | 1 per worker → exhaustion            | PgBouncer transaction pooling                  |
+| Static assets        | served from a volume by nginx        | jsDelivr CDN (immutable tag)                   |
+| Compose vs k8s       | divergent setups                     | same image + same scripts, in lockstep         |
