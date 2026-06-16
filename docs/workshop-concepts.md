@@ -12,7 +12,7 @@ deployed today; the "after" is where this work lands.
 
 ## 1. Why not put passwords in the Dockerfile?
 
-**Question:** "How do you fix the `SecretsUsedInArgOrEnv` lint warnings?"
+**Question:** "How do we see the `SecretsUsedInArgOrEnv` lint warnings?"
 
 **Misconception:** *"`ENV DB_PASSWORD=...` in the Dockerfile is fine - it's just a default."*
 
@@ -99,7 +99,7 @@ image - the deployments stay in lockstep.
 
 ## 5. Unprivileged nginx can't bind low ports
 
-**Question:** "Do the unprivileged-nginx follow-up."
+**Question:** "Why do we need the unprivileged-nginx?"
 
 **Misconception:** *"nginx always listens on 80."*
 
@@ -119,7 +119,7 @@ proxy tier (uid 101). Nothing in the stack needs root.
 
 ## 6. Provisioning belongs to the database, not the app
 
-**Question:** "Move user/DB creation to Postgres instead of `tethys db createsuperuser`."
+**Question:** "Does the db/user creation needs to be created via`tethys db createsuperuser`."
 
 **Misconception:** *"Tethys needs a superuser connection so it can create its own roles and
 database at startup."*
@@ -146,7 +146,7 @@ auditable, declarative, and runs exactly once. The runtime role is least-privile
 
 ## 7. Config scripts are convergence, not installation
 
-**Question:** "Don't `portal-config.sh` / `portal-bootstrap.sh` only need to run once?"
+**Question:** "How many times do we need to run `portal-config.sh` / `portal-bootstrap.sh` multiple, once?"
 
 **Misconception:** *"These are install steps - gate them with an `init_complete` flag so they
 never run again."*
@@ -174,7 +174,7 @@ no rebuild (mounted files don't need one).
 
 ## 8. A pooler multiplexes connections; transaction mode is the catch
 
-**Question:** "Can you add a pooler to the Docker Compose? How does it show a benefit?"
+**Question:** "Can we add a pooler to the Docker Compose? How does it show a benefit?"
 
 **Misconception:** *"More web workers = more Postgres connections; that's just how it scales."*
 
@@ -258,7 +258,7 @@ the database wiring people *think* they need is more complex than what they *act
 
 ## 11. Non-super users can create tables (because they own the schema)
 
-**Question:** "Can non-super users create tables? That's what's throwing me off."
+**Question:** "Can non-super users create tables?"
 
 **Misconception:** *"`CREATE TABLE` is a privileged operation, so the role must be elevated."*
 
@@ -269,33 +269,6 @@ by default - which is exactly the role Tethys uses.)
 
 **What it changes for Tethys:** confidence that the least-privilege model is sufficient. The app
 role owns its data and can fully manage it without elevation.
-
----
-
-## 12. Image-runtime tools vs host-maintainer tools
-
-**Question:** "I moved `publish-static.sh` to `dev/` because we don't need it in the image. Am I wrong?"
-
-**Misconception:** *"All the project's scripts belong in `scripts/` and get shipped in the image."*
-
-**Concept - sort scripts by *where they execute*, not by "they're all scripts."**
-
-```
-scripts/  → runs INSIDE the container, baked into the image
-            portal-config, db-migrations, portal-bootstrap, init-tethys,
-            start-uvicorn, provision-persistent-store   (needs the tethys CLI at runtime)
-
-dev/      → runs on the HOST, as a maintainer
-            publish-static.sh         (docker create / docker cp / git push)
-            k8s/setup-cluster.sh, k8s/ha-probe.sh
-```
-
-`publish-static.sh` orchestrates Docker and Git *from the host* - it never runs in the container,
-so baking it in was dead weight. `provision-persistent-store.sh` staying in `scripts/` proves the
-rule: it runs *inside* via `exec` and needs the Tethys CLI.
-
-**What it changes for Tethys:** a cleaner, smaller image and an obvious mental model - if a script
-needs the runtime, it's in the image; if it drives the host/cluster, it's a `dev/` tool.
 
 ---
 
