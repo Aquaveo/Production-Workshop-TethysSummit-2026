@@ -138,7 +138,7 @@ Install:
 helm install traefik traefik/traefik \
   --namespace traefik \
   --create-namespace \
-  -f traefik-values.yaml
+  -f dev/k8s/traefik-values.yaml
 ```
 
 Wait
