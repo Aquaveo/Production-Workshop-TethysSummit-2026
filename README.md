@@ -9,6 +9,7 @@ This is an idea about being able to run tethys using `Uvicorn` instead of `daphn
 
  ```bash
 cp .env.example .env
+echo "TETHYS_SECRET_KEY=\"$(openssl rand -base64 48)\"" >> .env
 docker compose build
 docker compose up tethys-init
 docker compose up -d
@@ -64,6 +65,9 @@ curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 1. Create a cluster
 
 ```bash
+# Begin by stopping the existing deployment
+docker compose down
+
 k3d cluster create tethys \
   --servers 1 \
   --agents 1 \
