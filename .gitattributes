@@ -1,0 +1,24 @@
+# Normalize line endings so files that run inside Linux containers / WSL2 are never
+# checked out with CRLF (which breaks shebangs: "bad interpreter: /usr/bin/env bash^M",
+# and corrupts scripts COPY'd into the image).
+
+# Sensible default: let git normalize text, but never force CRLF on checkout.
+* text=auto eol=lf
+
+# Scripts + container/config files that MUST stay LF on every platform.
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.conf      text eol=lf
+*.env       text eol=lf
+Dockerfile  text eol=lf
+.env.example text eol=lf
+
+# Binary assets git should never touch.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
