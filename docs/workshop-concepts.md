@@ -446,6 +446,43 @@ desired-state for what it declares, and silent about the rest.
 
 ---
 
+## 16. Env vars vs. portal_config.yml (e.g. the DB host)
+
+**Question:** "The DB host is both an env var (`TETHYS_DB_HOST`) and a setting in
+`portal_config.yml` (`DATABASES.default.HOST`). Which one does Tethys use?"
+
+**Misconception:** *"Django reads `TETHYS_DB_HOST` from the environment."* It doesn't - it only
+reads `portal_config.yml` (`settings.py:120` pops `DATABASES` from the file; the sole env var it
+reads directly is `DJANGO_LOG_LEVEL`).
+
+**Concept - env vars are *ingredients*; the file is what Django reads.** At startup,
+`portal-config.sh` takes the env var and **writes it into** the file:
+
+```
+TETHYS_DB_HOST (env)  ──portal-config.sh writes it──▶  portal_config.yml HOST  ──▶  Django reads this
+```
+
+So there's still **one** runtime source of truth: the file. The env var just decides what gets
+written into it before Django boots. (For that one key, env therefore "wins" over the file's
+literal value - only because the inject step runs after the file is copied.)
+
+Why have the env var at all? So the *same* committed file can point at a different host per pod:
+
+```
+init Job → env says ...-rw         → file gets the DIRECT db  → migrations skip the pooler
+web pod  → env says ...-pooler-rw  → file gets the POOLER     → web tier is pooled
+```
+
+Only **three** settings work this way (env → injected into the file): `SECRET_KEY`, DB `PASSWORD`,
+DB `HOST` - because they're either secret or change per environment/pod. Every other setting
+(`ALLOWED_HOSTS`, `STATIC_URL`, ...) is just written literally in the file.
+
+**What it changes for Tethys:** one-liner to remember - *env vars are inputs baked into the config
+file at startup; the file is the only thing Django actually reads.* (Contrast §15, which is about
+file vs. DB; this is about env vs. file.)
+
+---
+
 ## One-slide summary: before → after
 
 | Dimension            | Common Tethys deploy (before)        | This workshop (after)                          |
