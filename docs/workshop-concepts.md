@@ -319,6 +319,133 @@ created at all.
 
 ---
 
+## 13. Config in a ConfigMap "just rolls out" - because the name is hashed
+
+**Question:** "`portal_config.yml` is a ConfigMap - how does editing it take effect without a
+rebuild or a manual restart? Does Tethys hot-reload it?"
+
+**Misconception:** *"The pod re-reads the mounted ConfigMap live, so editing it updates the running
+portal."* (Or the opposite: *"I have to rebuild the image / manually restart pods to change config."*)
+
+**Concept - the kustomize content-hash suffix turns a config edit into a rolling restart.**
+Two distinct wins that are easy to conflate:
+
+1. **No image rebuild** - `portal_config.yml` is *data in a ConfigMap*, not baked into an image
+   layer. (Contrast `scripts/*.sh`, which are `COPY`'d into the image -> editing those *does* need
+   a rebuild. Mounted vs. baked.)
+2. **No manual restart** - `configMapGenerator` names the ConfigMap by a content hash, so:
+
+```
+edit portal_config.yml
+  → ConfigMap name changes:  tethys-portal-config-<hashA> → -<hashB>
+  → the Deployment's volume ref changes  → the POD TEMPLATE changes
+  → Kubernetes does an automatic RollingUpdate (maxUnavailable: 0 = zero downtime)
+```
+
+The crucial nuance: this is a **restart, not in-place hot-reload**. Tethys reads
+`portal_config.yml` once at startup (Django settings import); nothing watches the file. Each new
+pod re-runs the `configure` initContainer (copies the ConfigMap into the `home` emptyDir + injects
+secrets), then uvicorn starts and reads the new values. "No reload" = you never rebuild the image
+and never restart pods by hand - the hash-driven rollout *is* the restart, done for you.
+
+Why the hash matters: a **plain** (un-hashed) ConfigMap edit would silently *not* take effect -
+the kubelet eventually syncs the new file into the pod (~1 min), but the running uvicorn never
+re-reads it, and nothing changes the pod template so **nothing restarts**. The hash fixes both.
+
+**What it changes for Tethys:** config becomes a one-command, zero-downtime, GitOps-friendly
+edit (`edit portal_config.yml` → `kubectl apply -k`) - no rebuild, no `tethys settings --set`, no
+manual rollout. (Caveat: hashed names accumulate stale `tethys-portal-config-<oldhash>` ConfigMaps
+unless you `apply --prune`; they're harmless.) See also §7 (convergence, not installation).
+
+---
+
+## 14. ...but a *literal* ConfigMap does NOT auto-roll (the nginx config)
+
+**Question:** "Does the nginx config behave like the portal config in §13 - edit it and it rolls
+out automatically?"
+
+**Misconception:** *"All ConfigMaps auto-roll on `kubectl apply -k`."* The hash-driven rollout
+from §13 is a property of `configMapGenerator`, **not** of ConfigMaps in general.
+
+**Concept - only *generated* ConfigMaps get the content-hash suffix.** The nginx config is split
+into two parts that behave differently:
+
+```
+nginx envsubst VARIABLES (CLIENT_MAX_BODY_SIZE, TETHYS_PORT)
+    sourced via configMapKeyRef from the HASHED tethys-config  → edit -> auto-rolls   ✅ (like §13)
+
+nginx config TEMPLATE itself (the proxy rules, location blocks)
+    a LITERAL `kind: ConfigMap` named nginx-config, listed under resources:, NOT generated
+    → no hash suffix → name never changes → pod template never changes → NO auto-rollout  ❌
+```
+
+Worse, even after the kubelet eventually syncs the edited file into the pod (~1 min), nginx won't
+apply it: the nginxinc image runs **envsubst at container startup** (`/etc/nginx/templates/*.template`
+-> `/etc/nginx/conf.d/default.conf`) and never re-renders or `nginx -s reload`s on a file change.
+So editing the template needs a manual rollout:
+
+```bash
+kubectl -n tethys-k8 rollout restart deploy/nginx
+```
+
+To make it behave like §13, move the template into a `configMapGenerator` (`files:` entry) and
+delete the literal ConfigMap - then a template edit changes the hash and nginx auto-rolls.
+
+**What it changes for Tethys:** a precise mental model of *which* config edits are
+one-command-zero-downtime (anything generated: `tethys-config`, `tethys-portal-config`) versus
+which need a manual `rollout restart` (the literal `nginx-config`). When in doubt: *generated =
+auto-rolls, literal = manual*. (Compose parallel: bind-mounted `tethys_nginx.conf` likewise needs
+`docker compose restart nginx`.) See §13 for the generated-ConfigMap case.
+
+---
+
+## 15. Source of truth: the database vs. portal_config.yml
+
+**Question:** "Some settings are in `portal_config.yml`, some are in the database, and the admin UI
+edits settings too. Which one is the source of truth?"
+
+**Misconception:** *"The DB and the file are two copies of the same settings, so one must override
+the other."* They don't overlap that way - they own **different** settings, with different rules.
+
+**Concept - three buckets, two sources of truth.**
+
+```
+                  portal_config.yml (file)              Postgres (DB)
+1. Django/infra   ████ SOLE source of truth ███ ─read once at startup─▶ (no copy in DB)
+   DATABASES, ALLOWED_HOSTS, SECRET_KEY, STATIC_URL, DEBUG, LOGGING,
+   INSTALLED_APPS, CHANNEL_LAYERS, TETHYS_PORTAL_CONFIG
+
+2. site_settings: declarative seed ──tethys site -f (EVERY init)──▶ ████ live store ████
+   (branding/content)   non-empty key  → OVERWRITES the DB   → FILE wins (re-applied each deploy)
+                        empty/blank key → skipped            → DB wins (admin-UI edit persists)
+
+3. app settings /  (not in the file at all)                      ████ DB only ████
+   persistent stores                                             set via CLI / admin UI
+```
+
+1. **Django / infrastructure settings** - the file is the *only* source of truth; the DB stores no
+   copy, so nothing can be "out of sync." `tethys settings --set` (how `portal-config.sh` injects
+   `SECRET_KEY` / DB password / host) **mutates the file**, not the DB. Read once at Django startup
+   -> change = edit file + pod restart (§13).
+2. **Site / branding content** - the **DB** is the runtime store (what the portal serves and what
+   the admin UI edits). `portal_config.yml`'s `site_settings:` block is a one-way **seed**:
+   `portal-bootstrap.sh` runs `tethys site -f` on *every* init (convergence, §7), so per key,
+   `tethys_cli/site_commands.py` does `if content and obj: obj.update(...)` - **non-empty file
+   values overwrite the DB; empty values are skipped.**
+3. **App settings & persistent stores** - DB only; the file never mentions them.
+
+**The practical gotcha:** branding tweaks made in the **admin UI** stick **only** for keys you left
+**blank** in the file. Any key with a non-empty `site_settings:` value is reset to the file's value
+on the next `kubectl apply -k`. Rule of thumb: **manage via UI -> leave it blank in the file;
+pin it / make it reproducible -> set it in the file.**
+
+**What it changes for Tethys:** no guessing about "did my change take?" - infra settings are
+file-authoritative (restart to apply), branding is DB-authoritative *except* for the keys the file
+declares (which it re-asserts every deploy). Same convergence philosophy as §7: the file is
+desired-state for what it declares, and silent about the rest.
+
+---
+
 ## One-slide summary: before → after
 
 | Dimension            | Common Tethys deploy (before)        | This workshop (after)                          |
