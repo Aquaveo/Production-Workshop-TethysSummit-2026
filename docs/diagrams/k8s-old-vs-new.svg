@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="720" viewBox="0 0 1040 720" font-family="'Comic Sans MS','Comic Neue','Chalkboard SE',cursive">
+  <rect width="1040" height="720" fill="#FDFDFD"/>
+
+  <!-- title banner -->
+  <rect x="40" y="22" width="960" height="56" rx="10" fill="#A9C0EB"/>
+  <text x="520" y="59" text-anchor="middle" font-size="30" font-weight="bold" fill="#1B2A4A">Tethys on Kubernetes — Old vs New</text>
+
+  <!-- column headers -->
+  <text x="270" y="118" text-anchor="middle" font-size="22" font-weight="bold" fill="#C0392B">✗  BEFORE — fat Pod, manual ops</text>
+  <text x="775" y="118" text-anchor="middle" font-size="22" font-weight="bold" fill="#2E8B57">✓  AFTER — declarative &amp; self-healing</text>
+
+  <!-- divider -->
+  <line x1="520" y1="100" x2="520" y2="648" stroke="#D0D0D0" stroke-width="2" stroke-dasharray="6 6"/>
+
+  <!-- ============ BEFORE ============ -->
+  <rect x="70" y="138" width="400" height="250" rx="12" fill="#FCE7A2" stroke="#E0B83A" stroke-width="2"/>
+  <text x="270" y="162" text-anchor="middle" font-size="16" font-weight="bold" fill="#7A5C00">1 Pod (fat image) · runs as ROOT</text>
+  <g font-size="14" fill="#5b4600" text-anchor="middle">
+    <rect x="88"  y="176" width="170" height="38" rx="7" fill="#FBD34D" stroke="#D9A920"/><text x="173" y="200">supervisord</text>
+    <rect x="282" y="176" width="170" height="38" rx="7" fill="#FBD34D" stroke="#D9A920"/><text x="367" y="200">saltstack</text>
+    <rect x="88"  y="222" width="170" height="38" rx="7" fill="#FBD34D" stroke="#D9A920"/><text x="173" y="246">nginx (proxy)</text>
+    <rect x="282" y="222" width="170" height="38" rx="7" fill="#FBD34D" stroke="#D9A920"/><text x="367" y="246">daphne (ASGI)</text>
+    <rect x="88"  y="268" width="170" height="38" rx="7" fill="#FBD34D" stroke="#D9A920"/><text x="173" y="292">conda env</text>
+    <rect x="282" y="268" width="170" height="38" rx="7" fill="#FBD34D" stroke="#D9A920"/><text x="367" y="292">root user</text>
+  </g>
+  <rect x="88" y="314" width="364" height="30" rx="7" fill="#FBD34D" stroke="#D9A920"/>
+  <text x="270" y="334" text-anchor="middle" font-size="12.5" fill="#5b4600">1 replica · no autoscaling · manual rollout</text>
+
+  <rect x="88" y="408" width="364" height="40" rx="7" fill="#F5B7B1" stroke="#C0392B"/>
+  <text x="270" y="433" text-anchor="middle" font-size="13.5" fill="#7B241C">manual: kubectl exec → migrate + createsuperuser</text>
+  <rect x="88" y="454" width="364" height="40" rx="7" fill="#F5B7B1" stroke="#C0392B"/>
+  <text x="270" y="479" text-anchor="middle" font-size="13.5" fill="#7B241C">secrets in plain env · static in the Pod</text>
+
+  <rect x="155" y="516" width="230" height="46" rx="8" fill="#BFD7ED" stroke="#5B8FC0" stroke-width="2"/>
+  <text x="270" y="539" text-anchor="middle" font-size="14" fill="#1B3A5B">Postgres Pod</text>
+  <text x="270" y="555" text-anchor="middle" font-size="11" fill="#1B3A5B">no pooler · no HA</text>
+
+  <!-- ============ AFTER ============ -->
+  <g text-anchor="middle">
+    <!-- app tier (green) -->
+    <rect x="548" y="150" width="205" height="46" rx="8" fill="#A9DFBF" stroke="#3E9B63" stroke-width="2"/><text x="650" y="172" font-size="13.5" fill="#14532d">nginx Deployment</text><text x="650" y="188" font-size="11" fill="#14532d">unprivileged · :8080</text>
+    <rect x="775" y="150" width="205" height="46" rx="8" fill="#A9DFBF" stroke="#3E9B63" stroke-width="2"/><text x="877" y="172" font-size="13.5" fill="#14532d">tethys-web Deployment</text><text x="877" y="188" font-size="11" fill="#14532d">uvicorn · non-root · replicas + HPA</text>
+    <rect x="548" y="204" width="432" height="44" rx="8" fill="#C8E6D4" stroke="#3E9B63" stroke-width="2"/><text x="764" y="225" font-size="13.5" fill="#14532d">tethys-init Job: migrate → bootstrap → provision</text><text x="764" y="241" font-size="11" fill="#14532d">wait-for-schema gate · direct-to-primary</text>
+
+    <!-- data tier (blue) -->
+    <rect x="548" y="256" width="270" height="46" rx="8" fill="#BFD7ED" stroke="#5B8FC0" stroke-width="2"/><text x="683" y="278" font-size="13.5" fill="#1B3A5B">CNPG Postgres · 3 instances</text><text x="683" y="294" font-size="11" fill="#1B3A5B">primary + 2 replicas · auto failover</text>
+    <rect x="828" y="256" width="152" height="46" rx="8" fill="#BFD7ED" stroke="#5B8FC0" stroke-width="2"/><text x="904" y="278" font-size="13.5" fill="#1B3A5B">CNPG Pooler</text><text x="904" y="294" font-size="11" fill="#1B3A5B">PgBouncer</text>
+
+    <!-- edge/config tier (blue) -->
+    <rect x="548" y="310" width="138" height="46" rx="8" fill="#BFD7ED" stroke="#5B8FC0" stroke-width="2"/><text x="617" y="332" font-size="12.5" fill="#1B3A5B">valkey</text><text x="617" y="348" font-size="11" fill="#1B3A5B">Deployment + PVC</text>
+    <rect x="696" y="310" width="150" height="46" rx="8" fill="#BFD7ED" stroke="#5B8FC0" stroke-width="2"/><text x="771" y="332" font-size="12.5" fill="#1B3A5B">Gateway + Traefik</text><text x="771" y="348" font-size="11" fill="#1B3A5B">HTTPRoute · :8080</text>
+    <rect x="856" y="310" width="124" height="46" rx="8" fill="#BFD7ED" stroke="#5B8FC0" stroke-width="2"/><text x="918" y="332" font-size="12.5" fill="#1B3A5B">PVCs</text><text x="918" y="348" font-size="11" fill="#1B3A5B">persist + DB</text>
+  </g>
+
+  <!-- notes panel -->
+  <rect x="548" y="368" width="432" height="190" rx="10" fill="#EAF2FB" stroke="#9DBCE0" stroke-width="1.5"/>
+  <g font-size="13.5" fill="#22303f">
+    <text x="566" y="392">• secrets → <tspan font-weight="bold">Secret</tspan>; settings → <tspan font-weight="bold">ConfigMap</tspan></text>
+    <text x="566" y="414" font-size="12">   portal_config.yml hashed by Kustomize → edit = auto-roll</text>
+    <text x="566" y="438">• static → <tspan font-weight="bold">jsDelivr CDN</tspan></text>
+    <text x="566" y="462">• <tspan font-weight="bold">non-root</tspan> securityContext on every Pod</text>
+    <text x="566" y="486">• <tspan font-weight="bold">HPA</tspan> autoscaling · zero-downtime rolling updates</text>
+    <text x="566" y="510">• CNPG: <tspan font-weight="bold">managed roles</tspan> + least-privilege store role</text>
+    <text x="566" y="534">• runtime → <tspan font-weight="bold">uv venv + uvicorn</tspan> (no conda/daphne/salt)</text>
+  </g>
+
+  <!-- caption -->
+  <text x="520" y="690" text-anchor="middle" font-size="17" font-weight="bold" fill="#1B2A4A">One root Pod + manual ops  →  declarative, non-root, self-healing (CNPG · HPA · Gateway)</text>
+</svg>

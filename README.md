@@ -62,6 +62,14 @@ k3s single-node laptop (k3d)
                                # (TETHYS_HOME is an emptyDir; static served from the CDN)
 ```
 
+### Old vs New
+
+How this deployment differs from the legacy single-container Tethys image (see `docs/workshop-concepts.md` for the full reasoning):
+
+![Docker Compose — old vs new](docs/diagrams/compose-old-vs-new.png)
+
+![Kubernetes — old vs new](docs/diagrams/k8s-old-vs-new.png)
+
 ## Kubernetes
 
 We have a script at `dev/k8s/setup-cluster.sh` that will do all of the following: 
@@ -209,6 +217,12 @@ kubectl apply -k k8s/base
 ```
 
 `kubectl apply -k` creates everything in order: the namespace, the Traefik Gateway API config, the CNPG PostgreSQL cluster + pooler, Valkey, the PVCs, the Tethys ConfigMap/Secret, the init Job (migrations → superuser → site config), the Tethys web Deployment, nginx, and the Gateway/HTTPRoute.
+
+**How the portal config reaches a Pod:**
+
+![How the portal config reaches a Tethys Pod on k8s](docs/diagrams/k8s-config-flow.png)
+
+*`portal_config.yml` → Kustomize's hashed ConfigMap → the `configure` initContainer (injects secrets + DB host) → the `emptyDir` → uvicorn. Editing a setting changes the hash, which rolls the pods automatically. See `docs/workshop-concepts.md` §13/§15/§16.*
 
 **How the database wiring works (already baked into the manifests):**
 

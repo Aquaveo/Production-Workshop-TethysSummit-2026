@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="1080" viewBox="0 0 860 1080" font-family="'Comic Sans MS','Comic Neue','Chalkboard SE',cursive">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#333"/>
+    </marker>
+  </defs>
+
+  <!-- outer frame -->
+  <rect x="10" y="10" width="840" height="1060" rx="22" fill="#ECECEC" stroke="#141414" stroke-width="8"/>
+  <text x="430" y="58" text-anchor="middle" font-size="25" font-weight="bold" fill="#1b1b1b">How the portal config reaches a Tethys Pod  ·  k8s</text>
+
+  <!-- ============ TOP: BUILD / KUSTOMIZE ============ -->
+  <rect x="42" y="80" width="776" height="378" rx="12" fill="#FBF4E4" stroke="#C9B98F" stroke-width="2"/>
+  <text x="430" y="110" text-anchor="middle" font-size="19" font-weight="bold" fill="#7a6520">Build  —  kustomize build  /  kubectl apply -k</text>
+
+  <!-- input documents -->
+  <!-- portal_config.yml -->
+  <g>
+    <rect x="78" y="138" width="150" height="72" rx="6" fill="#FFFFFF" stroke="#7a6520" stroke-width="2"/>
+    <rect x="86" y="146" width="150" height="72" rx="6" fill="#FFFFFF" stroke="#7a6520" stroke-width="2"/>
+    <text x="161" y="176" text-anchor="middle" font-size="13" fill="#333">portal_config</text>
+    <text x="161" y="194" text-anchor="middle" font-size="13" fill="#333">.yml</text>
+  </g>
+  <text x="161" y="234" text-anchor="middle" font-size="12" fill="#555">settings (declarative)</text>
+  <!-- tethys-config.env -->
+  <g>
+    <rect x="356" y="142" width="150" height="68" rx="6" fill="#FFFFFF" stroke="#7a6520" stroke-width="2"/>
+    <text x="431" y="172" text-anchor="middle" font-size="13" fill="#333">tethys-config</text>
+    <text x="431" y="190" text-anchor="middle" font-size="13" fill="#333">.env</text>
+  </g>
+  <text x="431" y="234" text-anchor="middle" font-size="12" fill="#555">DB host, paths</text>
+  <!-- secret values -->
+  <g>
+    <rect x="632" y="142" width="150" height="68" rx="6" fill="#FCE4E4" stroke="#b5474a" stroke-width="2"/>
+    <text x="707" y="172" text-anchor="middle" font-size="13" fill="#7b241c">secret values</text>
+    <text x="707" y="190" text-anchor="middle" font-size="12" fill="#7b241c">SECRET_KEY, DB pw</text>
+  </g>
+
+  <!-- generator bar -->
+  <rect x="150" y="268" width="560" height="40" rx="8" fill="#EFE6CC" stroke="#C9B98F" stroke-width="2"/>
+  <text x="430" y="293" text-anchor="middle" font-size="14" font-weight="bold" fill="#6b5a1e">configMapGenerator  +  secretGenerator   (Kustomize)</text>
+  <line x1="161" y1="234" x2="230" y2="266" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="431" y1="234" x2="431" y2="266" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="707" y1="212" x2="640" y2="266" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- outputs: hashed ConfigMap (highlight) + others -->
+  <g>
+    <rect x="80" y="338" width="240" height="64" rx="6" fill="#CDEAF7" stroke="#3A6EA5" stroke-width="3"/>
+    <text x="200" y="364" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#143a5e">ConfigMap</text>
+    <text x="200" y="385" text-anchor="middle" font-size="13" fill="#143a5e">tethys-portal-config-<tspan font-weight="bold">«hash»</tspan></text>
+  </g>
+  <rect x="350" y="344" width="180" height="52" rx="6" fill="#D8ECF7" stroke="#5B8FC0" stroke-width="2"/>
+  <text x="440" y="375" text-anchor="middle" font-size="13" fill="#143a5e">ConfigMap · tethys-config</text>
+  <rect x="560" y="344" width="200" height="52" rx="6" fill="#FCE4E4" stroke="#b5474a" stroke-width="2"/>
+  <text x="660" y="375" text-anchor="middle" font-size="13" fill="#7b241c">Secret · tethys-secret</text>
+  <line x1="300" y1="310" x2="220" y2="336" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="440" y1="310" x2="440" y2="342" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="600" y1="310" x2="660" y2="342" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- hash callout -->
+  <text x="200" y="422" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#3A6EA5">★ name carries a CONTENT HASH</text>
+
+  <!-- ============ crossing arrow ============ -->
+  <line x1="200" y1="404" x2="200" y2="498" stroke="#333" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="214" y="478" font-size="12.5" fill="#333">mounted read-only at /config</text>
+
+  <!-- ============ BOTTOM: POD ============ -->
+  <rect x="42" y="500" width="776" height="540" rx="12" fill="#DCEEF6" stroke="#8FB8CC" stroke-width="2"/>
+  <text x="430" y="530" text-anchor="middle" font-size="19" font-weight="bold" fill="#1f5066">tethys-web Pod</text>
+
+  <!-- configure initContainer (cube) -->
+  <g>
+    <polygon points="300,560 322,538 482,538 460,560" fill="#DCEBFB" stroke="#3A6EA5" stroke-width="2"/>
+    <polygon points="460,560 482,538 482,634 460,656" fill="#93B8DC" stroke="#3A6EA5" stroke-width="2"/>
+    <rect x="300" y="560" width="160" height="96" fill="#BBD9F2" stroke="#3A6EA5" stroke-width="2"/>
+    <text x="380" y="600" text-anchor="middle" font-size="14" font-weight="bold" fill="#143a5e">configure</text>
+    <text x="380" y="620" text-anchor="middle" font-size="11.5" fill="#143a5e">initContainer</text>
+    <text x="380" y="638" text-anchor="middle" font-size="11" fill="#143a5e">portal-config.sh</text>
+  </g>
+  <!-- secret + config feed into configure -->
+  <line x1="660" y1="396" x2="470" y2="585" stroke="#b5474a" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="556" y="520" font-size="11.5" fill="#7b241c">inject SECRET_KEY + DB pw (env)</text>
+  <line x1="470" y1="396" x2="466" y2="600" stroke="#5B8FC0" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="486" y="556" font-size="11.5" fill="#1f5066">DB HOST (env)</text>
+
+  <!-- emptyDir -->
+  <rect x="270" y="724" width="320" height="96" rx="8" fill="#FFF7DA" stroke="#caa93a" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="430" y="752" text-anchor="middle" font-size="14" font-weight="bold" fill="#6b5a1e">emptyDir · TETHYS_HOME</text>
+  <text x="430" y="772" text-anchor="middle" font-size="12" fill="#6b5a1e">/home/tethys/portal</text>
+  <rect x="318" y="780" width="224" height="30" rx="5" fill="#FFFFFF" stroke="#caa93a"/>
+  <text x="430" y="800" text-anchor="middle" font-size="12" fill="#333">portal_config.yml  (rendered + secrets)</text>
+  <line x1="380" y1="656" x2="400" y2="722" stroke="#333" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="408" y="694" font-size="12" fill="#333">writes rendered config</text>
+
+  <!-- tethys-web uvicorn (cube) -->
+  <g>
+    <polygon points="320,884 342,862 502,862 480,884" fill="#DBF1E1" stroke="#3E9B63" stroke-width="2"/>
+    <polygon points="480,884 502,862 502,958 480,980" fill="#95C9A4" stroke="#3E9B63" stroke-width="2"/>
+    <rect x="320" y="884" width="160" height="96" fill="#BFE3C9" stroke="#3E9B63" stroke-width="2"/>
+    <text x="400" y="924" text-anchor="middle" font-size="14" font-weight="bold" fill="#14532d">tethys-web</text>
+    <text x="400" y="944" text-anchor="middle" font-size="12" fill="#14532d">uvicorn · non-root</text>
+    <text x="400" y="962" text-anchor="middle" font-size="11" fill="#14532d">reads at startup</text>
+  </g>
+  <line x1="430" y1="820" x2="420" y2="860" stroke="#333" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- side callout: hash -> rolling restart -->
+  <rect x="600" y="700" width="200" height="300" rx="10" fill="#EAF2FB" stroke="#9DBCE0" stroke-width="1.5"/>
+  <text x="700" y="726" text-anchor="middle" font-size="14" font-weight="bold" fill="#22303f">✎ edit a setting</text>
+  <g font-size="12.5" fill="#22303f" text-anchor="middle">
+    <text x="700" y="756">edit portal_config.yml</text>
+    <text x="700" y="778">⇩</text>
+    <text x="700" y="800">content hash changes</text>
+    <text x="700" y="822">⇩</text>
+    <text x="700" y="844">ConfigMap NAME changes</text>
+    <text x="700" y="866">⇩</text>
+    <text x="700" y="888">pod template changes</text>
+    <text x="700" y="910">⇩</text>
+    <text x="700" y="934" font-weight="bold" fill="#2E8B57">automatic rolling</text>
+    <text x="700" y="952" font-weight="bold" fill="#2E8B57">restart (0 downtime)</text>
+    <text x="700" y="982" font-size="11">no rebuild · no manual restart</text>
+  </g>
+</svg>
