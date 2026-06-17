@@ -46,8 +46,9 @@ if command -v docker >/dev/null 2>&1; then
     echo "✓ docker daemon:  running"
   else
     echo "✗ the Docker daemon is not reachable."
-    echo "    Start it (e.g. 'sudo systemctl start docker') and make sure your user is in the"
-    echo "    'docker' group (sudo usermod -aG docker \$USER; then log out/in), or re-run with sudo."
+    echo "    - macOS / Windows-WSL2: start Docker Desktop (enable WSL integration for your distro)."
+    echo "    - native Linux/WSL2 engine: 'sudo systemctl start docker', and add your user to the"
+    echo "      'docker' group ('sudo usermod -aG docker \$USER', then log out/in) or re-run with sudo."
     missing=1
   fi
 fi
@@ -97,20 +98,28 @@ docker compose up -d
 # ---------------------------------------------------------------------------
 # 4. Wait for the portal, then report.
 # ---------------------------------------------------------------------------
-echo
-echo -n "Waiting for the portal at http://localhost:${PORT}/ "
-ok=0
-for _ in $(seq 1 60); do
-  if curl -fsS -o /dev/null "http://localhost:${PORT}/" 2>/dev/null; then ok=1; break; fi
-  echo -n "."; sleep 2
-done
-echo
+admin="$(grep -E '^PORTAL_SUPERUSER_NAME=' .env | cut -d= -f2- | tr -d '"')"
+login_hint="(login: ${admin:-admin} / the PORTAL_SUPERUSER_PASSWORD in .env)"
 
-if [ "$ok" -eq 1 ]; then
-  admin="$(grep -E '^PORTAL_SUPERUSER_NAME=' .env | cut -d= -f2- | tr -d '"' )"
-  echo "All set! Open http://localhost:${PORT}    (login: ${admin:-admin} / the PORTAL_SUPERUSER_PASSWORD in .env)"
+if command -v curl >/dev/null 2>&1; then
+  echo
+  echo -n "Waiting for the portal at http://localhost:${PORT}/ "
+  ok=0
+  for _ in $(seq 1 60); do
+    if curl -fsS -o /dev/null "http://localhost:${PORT}/" 2>/dev/null; then ok=1; break; fi
+    echo -n "."; sleep 2
+  done
+  echo
+  if [ "$ok" -eq 1 ]; then
+    echo "All set! Open http://localhost:${PORT}    ${login_hint}"
+  else
+    echo "Portal didn't answer yet. Check the logs:"
+    echo "    docker compose ps"
+    echo "    docker compose logs -f tethys-web nginx"
+  fi
 else
-  echo "Portal didn't answer yet. Check the logs:"
-  echo "    docker compose ps"
-  echo "    docker compose logs -f tethys-web nginx"
+  # curl is the only readiness check we have; without it just report and point at the logs.
+  echo "Stack started (curl not found, so readiness wasn't polled)."
+  echo "Open http://localhost:${PORT}    ${login_hint}"
+  echo "Check status: docker compose ps"
 fi
