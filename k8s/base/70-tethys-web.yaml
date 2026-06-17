@@ -79,7 +79,13 @@ spec:
           command: ["/bin/bash","-c"]
           args:
             - |
-              until tethys manage migrate --check >/dev/null 2>&1; do
+              # MUST be django-admin, NOT `tethys manage`: the `tethys manage` wrapper
+              # swallows the subcommand's exit code (always returns 0), so it can't gate --
+              # the loop would exit on the first pass and the web container would race the
+              # init Job's migrations (-> "relation cookie_consent_cookiegroup does not exist").
+              # django-admin propagates Django's exit code (1 = pending, 0 = up to date).
+              export DJANGO_SETTINGS_MODULE=tethys_portal.settings
+              until django-admin migrate --check >/dev/null 2>&1; do
                 echo "waiting for migrations..."; sleep 3
               done
           envFrom:

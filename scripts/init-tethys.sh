@@ -23,6 +23,12 @@ set -euo pipefail
 /usr/local/bin/db-migrations.sh        # migrations/DDL run DIRECT (bypass the txn-mode pooler)
 /usr/local/bin/portal-bootstrap.sh
 
+# Provision the Dam Inventory persistent store (Option B, least-privilege tethys_app role).
+# Runs DIRECT (CREATE DATABASE can't traverse the txn-mode pooler) and BEFORE the pooler flip
+# below, so the portal-side service/link writes also hit the direct primary. The script
+# verifies the store DB exists and fails loudly if not (tethys syncstores swallows errors).
+/usr/local/bin/provision-persistent-store.sh dam_inventory primary_db
+
 # Point the web tier at the transaction-mode pooler. The DDL above ran direct against
 # Postgres; web (which reads this same shared portal_config.yml) now goes through PgBouncer.
 # Mirrors k8s, where the web pods' configure step sets HOST=<pooler> while the init Job uses

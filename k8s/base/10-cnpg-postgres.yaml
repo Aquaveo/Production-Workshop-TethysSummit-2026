@@ -75,3 +75,19 @@ spec:
     limits:
       cpu: "1"
       memory: 1Gi
+---
+# Maintenance database for the tethys_app role. `tethys syncstores` opens a connection with
+# no dbname to run CREATE DATABASE, so libpq defaults dbname to the username -> it needs a
+# "tethys_app" database to exist (the stock superuser works because "postgres" exists).
+# The CNPG Database CRD is order-safe: the operator waits for the managed tethys_app role.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: tethys-app-maintenance-db
+  namespace: tethys-k8
+spec:
+  name: tethys_app
+  owner: tethys_app
+  ensure: present
+  cluster:
+    name: tethys-postgres

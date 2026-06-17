@@ -197,9 +197,21 @@ kubectl apply -k k8s/base
 **How the database wiring works (already baked into the manifests):**
 
 - **Pooler vs. migrations.** Web pods reach PostgreSQL through the pooler - `TETHYS_DB_HOST: tethys-postgres-pooler-rw` in `tethys-config.env`. The init Job overrides `TETHYS_DB_HOST: tethys-postgres-rw` so DDL/migrations run directly against the primary (transaction-mode pooling and schema migrations don't mix). CNPG auto-configures pgbouncer's `auth_query` and the `cnpg_pooler_pgbouncer` role - no manual SQL needed.
-- **Users/roles.** The app connects as `tethys_default` using the password from the `tethys-db-app` secret; `tethys_super` is created by CNPG (`managed.roles`) for persistent-store creation. No `tethys db create` step is needed.
+- **Users/roles.** The app connects as `tethys_default` using the password from the `tethys-db-app` secret; `tethys_super` (superuser) and `tethys_app` (least-privilege, `CREATEDB` non-super) are created by CNPG (`managed.roles`). No `tethys db create` step is needed.
+- **Persistent stores (Option B).** The init Job auto-provisions Dam Inventory's `primary_db` store as the least-privilege `tethys_app` role (`provision-stores` initContainer → `provision-persistent-store.sh dam_inventory primary_db`), so the app never runs as a superuser. CNPG also creates a `tethys_app` **maintenance database** (the `Database` CRD in `10-cnpg-postgres.yaml`) because `tethys syncstores`' `CREATE DATABASE` connection defaults its dbname to the role name.
 
 > To change config later: edit `k8s/base/tethys-config.env` (or a manifest), then re-run the same two commands above. The web Deployment rolls automatically onto the new hashed ConfigMap (zero-downtime); the init Job is recreated by the delete + apply.
+
+> **Provisioning a persistent store by hand** (e.g. for a new app, or to demo Option B live).
+> It's idempotent and safe to re-run; it connects **direct** to the primary, never the pooler:
+> ```bash
+> # Kubernetes
+> kubectl -n tethys-k8 exec deploy/tethys-web -- \
+>   provision-persistent-store.sh <app_package> <ps_setting_name>
+> # Docker Compose
+> docker compose exec tethys-web \
+>   provision-persistent-store.sh <app_package> <ps_setting_name>
+> ```
 
 7. Access the portal
 

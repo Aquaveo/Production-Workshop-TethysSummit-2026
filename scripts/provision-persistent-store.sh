@@ -50,4 +50,18 @@ tethys link "persistent:${SERVICE_NAME}" "${APP}:ps_database:${SETTING}" \
 echo "==> 3/3 syncstores ${APP}  (creates <app>_${SETTING}, owned by ${DB_USER})"
 tethys syncstores "${APP}"
 
-echo "Done. '${APP}' persistent store provisioned with least-privilege role '${DB_USER}' (no superuser)."
+# Verify the store DB actually exists. `tethys syncstores` (like `tethys manage`) SWALLOWS
+# its subcommand's exit code -- it prints a traceback but still returns 0 -- so we cannot
+# trust it to fail the step. Confirm the database directly and exit non-zero if missing,
+# so an automated init Job retries instead of reporting a false success.
+STORE_DB="$(echo "${APP}_${SETTING}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')"
+if PGPASSWORD="${DB_PASS}" psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" \
+     -d "${DB_USER}" -tAc \
+     "SELECT 1 FROM pg_database WHERE datname='${STORE_DB}'" 2>/dev/null | grep -q 1; then
+  echo "Done. '${APP}' persistent store '${STORE_DB}' provisioned with least-privilege role '${DB_USER}' (no superuser)."
+else
+  echo "ERROR: syncstores reported done but store database '${STORE_DB}' does not exist." >&2
+  echo "       (tethys syncstores swallows failures -- check the traceback above; common cause:" >&2
+  echo "        the '${DB_USER}' maintenance database is missing, or the role lacks CREATEDB.)" >&2
+  exit 1
+fi

@@ -72,6 +72,45 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/tethys/portal
+        - name: provision-stores
+          image: tethys-workshop:local
+          imagePullPolicy: Never
+          # Option B persistent store for Dam Inventory, via the least-privilege tethys_app
+          # role. Runs after migrations (needs the services/links tables) and DIRECT to the
+          # primary (CREATE DATABASE can't traverse the txn-mode pooler). The script verifies
+          # the store DB exists and exits non-zero if not, so a failure retries the Job.
+          command: ["/usr/local/bin/provision-persistent-store.sh", "dam_inventory", "primary_db"]
+          envFrom:
+            - configMapRef:
+                name: tethys-config
+            - secretRef:
+                name: tethys-secret
+          env:
+            # portal-side service/link writes go to the portal DB via the rendered
+            # portal_config.yml (direct primary, set by the configure step above).
+            - name: TETHYS_DB_HOST
+              value: "tethys-postgres-rw"
+            - name: TETHYS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tethys-db-app
+                  key: password
+            # the persistent-store service connects DIRECT as tethys_app (CREATEDB, non-super)
+            - name: TETHYS_APP_DB_HOST
+              value: "tethys-postgres-rw"
+            - name: TETHYS_APP_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: tethys-db-app-store
+                  key: username
+            - name: TETHYS_APP_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tethys-db-app-store
+                  key: password
+          volumeMounts:
+            - name: home
+              mountPath: /home/tethys/portal
       containers:
         - name: portal-user-bootstrap
           image: tethys-workshop:local

@@ -18,6 +18,12 @@
 # app never runs as a superuser at runtime and needs no GRANT fix-ups. (Spatial stores
 # would still need a superuser for CREATE EXTENSION -- handle those separately.)
 #
+# We ALSO create a database named exactly "tethys_app" (same as the role). `tethys
+# syncstores` opens a MAINTENANCE connection to run CREATE DATABASE, and the persistent-
+# store service URL carries no dbname -> libpq defaults dbname to the username. The stock
+# `postgres` superuser works because a `postgres` db exists; tethys_app needs the same.
+# Without it: `FATAL: database "tethys_app" does not exist` and syncstores fails.
+#
 # Values come from the same env vars the rest of the stack uses (.env), passed
 # to the postgres service in docker-compose.yml. psql :"ident" / :'literal'
 # interpolation keeps role names and passwords correctly quoted.
@@ -32,6 +38,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
     CREATE ROLE :"super" WITH LOGIN SUPERUSER CREATEDB PASSWORD :'super_pw';
     CREATE ROLE :"app"   WITH LOGIN CREATEDB  PASSWORD :'app_pw';
     CREATE DATABASE :"dbname" OWNER :"owner";
+    -- maintenance DB for tethys_app's CREATE DATABASE connection (see header)
+    CREATE DATABASE :"app"    OWNER :"app";
 EOSQL
 
-echo "Bootstrapped database '${TETHYS_DB_NAME}' (owner ${TETHYS_DB_USERNAME}, superuser ${TETHYS_DB_SUPERUSER}, app role ${TETHYS_APP_DB_USERNAME} [CREATEDB, non-super])"
+echo "Bootstrapped database '${TETHYS_DB_NAME}' (owner ${TETHYS_DB_USERNAME}, superuser ${TETHYS_DB_SUPERUSER}, app role ${TETHYS_APP_DB_USERNAME} [CREATEDB, non-super] + maintenance db ${TETHYS_APP_DB_USERNAME})"

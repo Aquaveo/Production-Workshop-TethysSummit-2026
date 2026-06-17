@@ -272,6 +272,53 @@ role owns its data and can fully manage it without elevation.
 
 ---
 
+## 12. A least-privilege role needs its own "maintenance" database
+
+**Question:** "Isn't it enough to run `tethys link` and then `tethys syncstores`? Why does the
+least-privilege `tethys_app` role also need a database *named* `tethys_app`?"
+
+**Misconception:** *"`link` + `syncstores` is the whole story - if the role can create databases,
+syncstores will just create the store."*
+
+**Concept - `syncstores`' `CREATE DATABASE` needs an existing database to connect to first, and
+it defaults that to the role name.** `link` and the store creation happen at two different layers:
+
+```
+tethys link       writes a service<->setting association ROW into the PORTAL db   (metadata only)
+tethys syncstores CONNECTS to the target Postgres and runs CREATE DATABASE        (needs a landing db)
+```
+
+`link` never touches the target server. `syncstores` is the first step that actually connects -
+and the persistent-store service URL carries **no database name** (`database = None` in
+`tethys_services/models.py`), so libpq defaults the dbname to the **connecting username**. The
+stock `postgres` superuser works only because a `postgres` database happens to exist; a
+least-privilege `tethys_app` role has no same-named database, so the connection fails before any
+`CREATE DATABASE` can run:
+
+```
+role tethys_app present, but NO `tethys_app` database:
+  tethys link        -> OK   (just a metadata row)
+  tethys syncstores  -> FATAL: database "tethys_app" does not exist
+```
+
+The maintenance database is therefore **orthogonal** to the CLI ordering - it's a one-time,
+DB-layer prerequisite that belongs with role creation (Compose initdb / CNPG `Database` CRD), not
+in the link/syncstores sequence. The only alternative is to point the store at a role that already
+owns a same-named db (e.g. the `postgres` superuser) - which is exactly the superuser-at-runtime
+coupling Option B exists to avoid (see §10).
+
+**What it changes for Tethys:** Option B (least-privilege persistent stores) is only complete when
+the deployment also provisions a `tethys_app` maintenance database. With it, `syncstores` creates
+and owns the store as a non-superuser; without it, the "least-privilege store" silently can't be
+created at all.
+
+> **Bonus gotcha:** `tethys syncstores` (like `tethys manage`) **swallows its subcommand exit
+> code** - it prints a traceback yet still returns `0`. An automated provisioning step must
+> *verify the store database exists afterward* and fail explicitly, or a broken provision reports
+> success. (Same exit-code-swallow class as the migration gate in the k8s notes.)
+
+---
+
 ## One-slide summary: before → after
 
 | Dimension            | Common Tethys deploy (before)        | This workshop (after)                          |
