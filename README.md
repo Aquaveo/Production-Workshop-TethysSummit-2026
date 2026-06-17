@@ -4,8 +4,24 @@ This is an idea about being able to run tethys using `Uvicorn` instead of `daphn
  
 ## Plain Docker on VM
 
+### Quick start (one script)
 
-## Steps
+On a fresh VM or laptop, `dev/vm/setup.sh` does the whole Compose bring-up: it **checks** Docker
+Engine + the `docker compose` v2 plugin are installed and the daemon is up, creates `.env` from
+`.env.example` (generating a real `TETHYS_SECRET_KEY`), builds the image, runs the init job, brings
+the stack up, and waits for the portal:
+
+```bash
+./dev/vm/setup.sh
+```
+
+Then open <http://localhost:8080> (login `admin` / the `PORTAL_SUPERUSER_PASSWORD` in `.env`). It's
+re-runnable: an existing `.env` is left untouched and `docker compose up` is idempotent. To reset
+from scratch, use `dev/vm/fresh_start.sh` (`docker compose down -v && build && up`).
+
+### Steps (manual equivalent)
+
+If you'd rather run it by hand (what `setup.sh` automates):
 
  ```bash
 cp .env.example .env
