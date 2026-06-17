@@ -186,7 +186,7 @@ re-run it, bump the `STATIC_URL:` tag in `portal_config.yml`, and `kubectl apply
 All manifests live under `k8s/base/` and are applied together with Kustomize. The `tethys-config` ConfigMap is generated from `k8s/base/tethys-config.env`, so editing that file and re-applying rolls the change out with no image rebuild.
 
 Apply everything together (the init Job auto-cleans after it finishes via
-`ttlSecondsAfterFinished`, so re-applies create a fresh Job — no manual delete needed):
+`ttlSecondsAfterFinished`, so re-applies create a fresh Job - no manual delete needed):
 
 ```bash
 kubectl apply -k k8s/base
